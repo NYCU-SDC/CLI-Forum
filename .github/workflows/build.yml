@@ -41,10 +41,10 @@ jobs:
   Build-CLI:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up Go
+      - name: Setup go
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
@@ -58,5 +58,5 @@ jobs:
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v3
         with:
-          name: mycli
-          path: cli/mycli
+          name: cli_forum
+          path: cli/cli_forum
