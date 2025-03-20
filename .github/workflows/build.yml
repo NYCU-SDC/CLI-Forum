@@ -54,9 +54,3 @@ jobs:
         run: |
           go mod download
           go build -v -o cli_forum ./...
-
-      - name: Upload CLI artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: cli_forum
-          path: cli/cli_forum
