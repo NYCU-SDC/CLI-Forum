@@ -6,7 +6,65 @@ on:
       - main
 
 jobs:
+  Lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Lint backend
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: ./backend
+          version: v1.64
+
+      - name: Lint CLI
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: ./cli
+          version: v1.64
+
+  Test-Backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Test backend
+        working-directory: ./backend
+        run: make test
+
+      - name: Test cli
+        working-directory: ./backend
+        run: make test
+
+  Test-CLI:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Test cli
+        working-directory: ./backend
+        run: make test
+
   Build-Backend:
+    needs: [Lint, Test-Backend]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
@@ -36,6 +94,7 @@ jobs:
             .
 
   Build-CLI:
+    needs: [Lint, Test-CLI]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
