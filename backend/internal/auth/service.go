@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
@@ -10,24 +11,41 @@ import (
 
 var jwtKey = []byte(os.Getenv("BACKEND_SECRET_KEY"))
 
-type Claims struct {
-	Username string `json:"username"`
-	jwt.RegisteredClaims
+func CreateToken(username string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username": username,
+		"exp":      time.Now().Add(120 * time.Hour).Unix(),
+	})
+
+	tokenString, err := token.SignedString(jwtKey)
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
+}
+
+func VerifyToken(tokenString string) error {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	if !token.Valid {
+		return fmt.Errorf("invalid token")
+	}
+
+	return nil
 }
 
 func Register(u RegisterRequest) (string, error) {
 	// TODO: Implement registration with the database
 
 	// Registration successful, generate a token
-	expirationTime := time.Now().Add(120 * time.Hour)
-	claims := &Claims{
-		Username: u.Username,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtKey)
+	tokenString, err := CreateToken(u.Username)
 	if err != nil {
 		return "", errors.New("error_generating_token")
 	}
@@ -39,15 +57,7 @@ func Login(u LoginRequest) (string, error) {
 	// TODO: implement login with database
 
 	// Registration successful, generate a token
-	expirationTime := time.Now().Add(120 * time.Hour)
-	claims := &Claims{
-		Username: u.Username,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtKey)
+	tokenString, err := CreateToken(u.Username)
 	if err != nil {
 		return "", errors.New("error_generating_token")
 	}
