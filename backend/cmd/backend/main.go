@@ -10,6 +10,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /login", auth.LoginHandler)
+	mux.HandleFunc("POST /register", auth.RegisterHandler)
 
 	fmt.Println("Server up")
 

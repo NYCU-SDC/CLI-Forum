@@ -3,32 +3,23 @@ package auth
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type LoginRequest struct {
+type RegisterRequest struct {
 	Username string `json:"user"`
 	Password string `json:"password"`
 }
 
-type LoginResponse struct {
+type RegisterResponse struct {
 	Token string
 }
 
-var jwtKey = []byte(os.Getenv("BACKEND_SECRET_KEY"))
-
-type Claims struct {
-	Username string `json:"username"`
-	jwt.RegisteredClaims
-}
-
-func LoginHandler(w http.ResponseWriter, r *http.Request) {
-	var u LoginRequest
-
-	// Decode the request body into the LoginRequest struct
+func RegisterHandler(w http.ResponseWriter, r *http.Request) {
+	// Decode the request body into the RegisterRequest struct
+	var u RegisterRequest
 	err := json.NewDecoder(r.Body).Decode(&u)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -36,14 +27,14 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// Call the Login function
-	err = Login(u)
+	// Call the Register function
+	err = Register(u)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Login successful, generate a token
+	// Registration successful, generate a token
 	expirationTime := time.Now().Add(120 * time.Hour)
 	claims := &Claims{
 		Username: u.Username,
@@ -58,12 +49,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return the token as a JSON response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(LoginResponse{Token: tokenString})
+	// Return the token in the response
+	json.NewEncoder(w).Encode(RegisterResponse{Token: tokenString})
 }
 
-func Login(u LoginRequest) error {
-	// TODO: implement login with database
+func Register(u RegisterRequest) error {
+	// TODO: Implement registration with the database
 	return nil
 }
