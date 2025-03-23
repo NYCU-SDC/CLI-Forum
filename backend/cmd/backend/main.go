@@ -12,9 +12,7 @@ func main() {
 	// initialize logger
 	logger, err := zap.NewProduction()
 	if err != nil {
-		if err != nil {
-			panic("Failed to initialize Zap logger: " + err.Error())
-		}
+		panic("Failed to initialize Zap logger: " + err.Error())
 	}
 
 	defer func() {
