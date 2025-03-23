@@ -10,10 +10,22 @@ import (
 
 var jwtKey = []byte(os.Getenv("BACKEND_SECRET_KEY"))
 
+type claims struct {
+	username string
+	jwt.RegisteredClaims
+}
+
+type User struct {
+	Username string `json:"user"`
+}
+
 func New(username string) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"username": username,
-		"exp":      time.Now().Add(120 * time.Hour).Unix(),
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims{
+		username: username,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(120 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
 	})
 
 	tokenString, err := token.SignedString(jwtKey)
@@ -38,4 +50,20 @@ func Verify(tokenString string) error {
 	}
 
 	return nil
+}
+
+func Parse(tokenString string) (User, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &claims{}, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+	if err != nil {
+		return User{}, err
+	}
+
+	parsedToken, ok := token.Claims.(*claims)
+	if !ok || !token.Valid {
+		return User{}, fmt.Errorf("invalid token")
+	}
+
+	return User{Username: parsedToken.username}, nil
 }
