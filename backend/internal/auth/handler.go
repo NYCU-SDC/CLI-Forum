@@ -42,7 +42,11 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Return the token in the response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(RegisterResponse{Token: token})
+	err = json.NewEncoder(w).Encode(RegisterResponse{Token: token})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -65,5 +69,9 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Return the token as a JSON response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(LoginResponse{Token: token})
+	err = json.NewEncoder(w).Encode(RegisterResponse{Token: token})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }

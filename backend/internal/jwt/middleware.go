@@ -1,4 +1,4 @@
-package auth
+package jwt
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func JWTMiddleware(next http.HandlerFunc) http.HandlerFunc {
+func Middleware(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("JWT Middleware")
 
@@ -20,7 +20,7 @@ func JWTMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		tokenString := strings.TrimPrefix(token, "Bearer ")
 
 		// Verify the token
-		err := VerifyToken(tokenString)
+		err := Verify(tokenString)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
