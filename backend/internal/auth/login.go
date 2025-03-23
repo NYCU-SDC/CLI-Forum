@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -18,7 +19,7 @@ type LoginResponse struct {
 	Token string
 }
 
-var jwtKey = []byte("my_secret_key")
+var jwtKey = []byte(os.Getenv("BACKEND_SECRET_KEY"))
 
 type Claims struct {
 	Username string `json:"username"`
