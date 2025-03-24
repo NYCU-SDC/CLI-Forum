@@ -24,7 +24,6 @@ func VerifyPassword(password, hash string) bool {
 
 func connect(ctx context.Context) (*pgx.Conn, error) {
 	dbURL := os.Getenv("DATABASE_URL")
-	fmt.Println("db url", dbURL)
 	return pgx.Connect(ctx, dbURL)
 }
 
@@ -116,9 +115,21 @@ func Register(u RegisterRequest) (string, error) {
 }
 
 func Login(u LoginRequest) (string, error) {
-	// TODO: implement login with database
+	// Find user by names
+	user, err := FindByName(context.Background(), u.Username)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", errors.New("user_not_found")
+		}
+		return "", errors.New("error_finding_user")
+	}
 
-	// Registration successful, generate a token
+	// Check if the password is correct
+	if !VerifyPassword(u.Password, user.Password) {
+		return "", errors.New("incorrect_password")
+	}
+
+	// Login successful, generate a token
 	tokenString, err := jwt.New(u.Username)
 	if err != nil {
 		return "", errors.New("error_generating_token")

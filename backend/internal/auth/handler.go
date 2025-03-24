@@ -36,6 +36,10 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	// Call the Register function
 	token, err := Register(u)
 	if err != nil {
+		if err.Error() == "user_already_exists" {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
