@@ -1,11 +1,21 @@
 version: "2"
 sql:
-  - &default
+  # - &post
+  #   engine: "postgresql"
+  #   queries: "../post/queries.sql"
+  #   schema: "../post/schema.sql"
+  #   gen:
+  #     go: &go_default
+  #       package: "post"
+  #       out: "../post"
+  #       sql_package: "pgx/v5"
+
+  - &auth
     engine: "postgresql"
-    queries: "../post/queries.sql"
-    schema: "../post/schema.sql"
+    queries: "../auth/queries.sql"
+    schema: "../auth/schema.sql"
     gen:
       go: &go_default
-        package: "post"
-        out: "../post"
+        package: "auth"
+        out: "../auth"
         sql_package: "pgx/v5"
