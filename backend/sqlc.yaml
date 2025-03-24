@@ -3,9 +3,10 @@ sql:
   - &default
     engine: "postgresql"
     queries: "./internal/post/queries.sql"
-    schema: "./internal/database/migrations"
+    schema: "./internal/database/migrations/000001_posts.up.sql"
     gen:
       go: &go_default
         package: "post"
         out: "./internal/post"
         sql_package: "pgx/v5"
+        emit_json_tags: true

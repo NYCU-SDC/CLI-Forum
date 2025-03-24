@@ -16,10 +16,10 @@ INSERT INTO posts (id, author_id, title, content) VALUES ($1, $2, $3, $4) RETURN
 `
 
 type CreateParams struct {
-	ID       pgtype.UUID
-	AuthorID pgtype.UUID
-	Title    pgtype.Text
-	Content  pgtype.Text
+	ID       pgtype.UUID `json:"id"`
+	AuthorID pgtype.UUID `json:"author_id"`
+	Title    pgtype.Text `json:"title"`
+	Content  pgtype.Text `json:"content"`
 }
 
 func (q *Queries) Create(ctx context.Context, arg CreateParams) (Post, error) {
@@ -101,9 +101,9 @@ UPDATE posts SET title = $2, content = $3 WHERE id = $1 RETURNING id, author_id,
 `
 
 type UpdateParams struct {
-	ID      pgtype.UUID
-	Title   pgtype.Text
-	Content pgtype.Text
+	ID      pgtype.UUID `json:"id"`
+	Title   pgtype.Text `json:"title"`
+	Content pgtype.Text `json:"content"`
 }
 
 func (q *Queries) Update(ctx context.Context, arg UpdateParams) (Post, error) {
