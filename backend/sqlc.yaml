@@ -1,6 +1,6 @@
 version: "2"
 sql:
-  # - &post
+  # - &default
   #   engine: "postgresql"
   #   queries: "../post/queries.sql"
   #   schema: "../post/schema.sql"
@@ -9,13 +9,14 @@ sql:
   #       package: "post"
   #       out: "../post"
   #       sql_package: "pgx/v5"
+  #       emit_json_tags: true
 
   - &auth
     engine: "postgresql"
-    queries: "../auth/queries.sql"
-    schema: "../auth/schema.sql"
+    queries: "internal/auth/queries.sql"
+    schema: "internal/auth/schema.sql"
     gen:
       go: &go_default
         package: "auth"
-        out: "../auth"
+        out: "internal/auth"
         sql_package: "pgx/v5"

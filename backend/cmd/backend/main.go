@@ -2,6 +2,7 @@ package main
 
 import (
 	"backend/internal/auth"
+	"backend/internal/database"
 	"fmt"
 	"net/http"
 
@@ -10,6 +11,15 @@ import (
 )
 
 func main() {
+	// Load .env file
+	err := godotenv.Load(".env")
+	if err != nil {
+		fmt.Println("Error loading .env file : ", err)
+	}
+
+	database.MigrateUP()
+	defer database.MigrateDown()
+
 	// initialize logger
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -24,12 +34,6 @@ func main() {
 	}() // flushes buffer, if any
 
 	sugar := logger.Sugar()
-
-	// Load .env file
-	err = godotenv.Load("../../.env")
-	if err != nil {
-		sugar.Error("Error loading .env file")
-	}
 
 	// initialize mux
 	mux := http.NewServeMux()

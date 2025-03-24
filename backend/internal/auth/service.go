@@ -28,7 +28,7 @@ func connect(ctx context.Context) (*pgx.Conn, error) {
 	return pgx.Connect(ctx, dbURL)
 }
 
-func CreateUser(ctx context.Context, u RegisterRequest) (User, error) {
+func CreateUser(ctx context.Context, u User) (User, error) {
 	// Connect to the database
 	conn, err := connect(ctx)
 	if err != nil {
@@ -36,17 +36,11 @@ func CreateUser(ctx context.Context, u RegisterRequest) (User, error) {
 	}
 	defer conn.Close(ctx)
 
-	// Hash the password
-	hashedPassword, err := HashPassword(u.Password)
-	if err != nil {
-		return User{}, err
-	}
-
 	// Query the database
 	queries := New(conn)
 	return queries.Create(ctx, CreateParams{
-		Name:     u.Username,
-		Password: hashedPassword,
+		Name:     u.Name,
+		Password: u.Password,
 	})
 }
 
@@ -89,7 +83,6 @@ func Register(u RegisterRequest) (string, error) {
 	// Check if the user already exists
 	isUserExist, err := Exist(context.Background(), u.Username)
 	if err != nil {
-		fmt.Println("error_checking_user", err)
 		return "", errors.New("error_checking_user")
 	}
 	if isUserExist {
@@ -97,8 +90,19 @@ func Register(u RegisterRequest) (string, error) {
 	}
 
 	// Create the user
-	_, err = CreateUser(context.Background(), u)
+	hashedPassword, err := HashPassword(u.Password)
 	if err != nil {
+		return "", errors.New("error_hashing_password")
+	}
+
+	user := User{
+		Name:     u.Username,
+		Password: hashedPassword,
+	}
+
+	_, err = CreateUser(context.Background(), user)
+	if err != nil {
+		fmt.Println("when creating user: ", err)
 		return "", errors.New("error_registering_user")
 	}
 
