@@ -5,3 +5,9 @@ CREATE TABLE IF NOT EXISTS posts (
     content TEXT,
     create_at TIMESTAMPTZ DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY,
+    name VARCHAR(30) NOT NULL,
+    password VARCHAR(200) NOT NULL
+);

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 )
 
@@ -23,6 +24,12 @@ func main() {
 	}() // flushes buffer, if any
 
 	sugar := logger.Sugar()
+
+	// Load .env file
+	err = godotenv.Load("../../.env")
+	if err != nil {
+		sugar.Error("Error loading .env file")
+	}
 
 	// initialize mux
 	mux := http.NewServeMux()
