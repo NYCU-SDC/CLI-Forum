@@ -14,7 +14,7 @@ sql:
   - &auth
     engine: "postgresql"
     queries: "internal/auth/queries.sql"
-    schema: "internal/auth/schema.sql"
+    schema: "internal/database/migrations/user_migration.up.sql"
     gen:
       go: &go_default
         package: "auth"
