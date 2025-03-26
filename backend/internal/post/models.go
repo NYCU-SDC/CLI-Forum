@@ -9,9 +9,9 @@ import (
 )
 
 type Post struct {
-	ID       pgtype.UUID        `json:"id"`
-	AuthorID pgtype.UUID        `json:"author_id"`
-	Title    pgtype.Text        `json:"title"`
-	Content  pgtype.Text        `json:"content"`
-	CreateAt pgtype.Timestamptz `json:"create_at"`
+	ID       pgtype.UUID
+	AuthorID pgtype.UUID
+	Title    pgtype.Text
+	Content  pgtype.Text
+	CreateAt pgtype.Timestamptz
 }

@@ -2,60 +2,49 @@ package post
 
 import (
 	"context"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"os"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
-func connect(ctx context.Context) (*pgx.Conn, error) {
-	dbURL := os.Getenv("DATABASE_URL")
-	return pgx.Connect(ctx, dbURL)
+type Service struct {
+	postQueries *Queries
+	logger      *zap.SugaredLogger
 }
 
-func GetAll(ctx context.Context) ([]Post, error) {
-	// Connect to the database
-	conn, err := connect(ctx)
-	if err != nil {
-		return nil, err
+func NewService(db *pgxpool.Pool, logger *zap.SugaredLogger) Service {
+	return Service{
+		postQueries: New(db),
+		logger:      logger,
 	}
-	defer conn.Close(ctx)
+}
 
-	queries := New(conn)
-
-	posts, err := queries.FindAll(ctx)
+func (s Service) GetAll(ctx context.Context) ([]Post, error) {
+	posts, err := s.postQueries.FindAll(ctx)
 	if err != nil {
+		s.logger.Errorw("Error finding all posts", zap.Error(err))
 		return nil, err
 	}
 	return posts, nil
 }
 
-func Get(ctx context.Context, id pgtype.UUID) (Post, error) {
-	// Connect to the database
-	conn, err := connect(ctx)
+func (s Service) GetPost(ctx context.Context, id pgtype.UUID) (Post, error) {
+	post, err := s.postQueries.FindByID(ctx, id)
 	if err != nil {
+		s.logger.Errorw("Error finding post by ID", zap.Error(err))
 		return Post{}, err
 	}
-	defer conn.Close(ctx)
-
-	queries := New(conn)
-
-	return queries.FindByID(ctx, id)
+	return post, err
 }
 
-func Create(ctx context.Context, post Post) (Post, error) {
-	// Connect to the database
-	conn, err := connect(ctx)
+func (s Service) CreatePost(ctx context.Context, r CreateRequest) (Post, error) {
+	createdPost, err := s.postQueries.Create(ctx, CreateParams{
+		Title:   pgtype.Text{String: r.Title},
+		Content: pgtype.Text{String: r.Content},
+	})
 	if err != nil {
+		s.logger.Errorw("Error creating post", zap.Error(err))
 		return Post{}, err
 	}
-	defer conn.Close(ctx)
-
-	queries := New(conn)
-
-	return queries.Create(ctx, CreateParams{
-		ID:       post.ID,
-		AuthorID: post.AuthorID,
-		Title:    post.Title,
-		Content:  post.Content,
-	})
+	return createdPost, nil
 }
