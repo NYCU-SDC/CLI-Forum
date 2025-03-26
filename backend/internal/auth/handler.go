@@ -1,9 +1,26 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 )
+
+type UserService interface {
+	Register(ctx context.Context, u RegisterRequest) (string, error)
+	Login(ctx context.Context, u LoginRequest) (string, error)
+}
+
+type Handler struct {
+	userService UserService
+}
+
+func NewHandler(service *Service) *Handler {
+	// build interfaces from the service
+	return &Handler{
+		userService: service,
+	}
+}
 
 type RegisterRequest struct {
 	Username string `json:"user"`
@@ -23,7 +40,7 @@ type LoginResponse struct {
 	Token string
 }
 
-func RegisterHandler(w http.ResponseWriter, r *http.Request) {
+func (h Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	// Decode the request body into the RegisterRequest struct
 	var u RegisterRequest
 	err := json.NewDecoder(r.Body).Decode(&u)
@@ -34,7 +51,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Call the Register function
-	token, err := Register(u)
+	token, err := h.userService.Register(context.Background(), u)
 	if err != nil {
 		if err.Error() == "user_already_exists" {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -53,7 +70,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func LoginHandler(w http.ResponseWriter, r *http.Request) {
+func (h Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var u LoginRequest
 
 	// Decode the request body into the LoginRequest struct
@@ -65,7 +82,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Call the Login function
-	token, err := Login(u)
+	token, err := h.userService.Login(context.Background(), u)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return

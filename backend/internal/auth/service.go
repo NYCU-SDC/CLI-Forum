@@ -1,76 +1,65 @@
 package auth
 
 import (
+	"backend/internal/jwt"
 	"context"
 	"errors"
 	"fmt"
-	"os"
-
-	"backend/internal/jwt"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+type Service struct {
+	db *pgxpool.Pool
+
+	count int
+}
+
+func NewService(db *pgxpool.Pool) *Service {
+	return &Service{db: db}
+}
+
+var hashCost = 14
+
+func (s Service) HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), hashCost)
 	return string(bytes), err
 }
 
-func VerifyPassword(password, hash string) bool {
+func (s Service) VerifyPassword(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
 }
 
-func connect(ctx context.Context) (*pgx.Conn, error) {
-	dbURL := os.Getenv("DATABASE_URL")
-	return pgx.Connect(ctx, dbURL)
-}
-
-func CreateUser(ctx context.Context, u User) (User, error) {
-	// Connect to the database
-	conn, err := connect(ctx)
-	if err != nil {
-		return User{}, err
-	}
-	defer conn.Close(ctx)
+func (s Service) CreateUser(ctx context.Context, u User) (User, error) {
+	// Get the connection form the pool
+	queries := New(s.db)
 
 	// Query the database
-	queries := New(conn)
 	return queries.Create(ctx, CreateParams{
 		Name:     u.Name,
 		Password: u.Password,
 	})
 }
 
-func FindByName(ctx context.Context, username string) (User, error) {
-	// Connect to the database
-	conn, err := connect(ctx)
-	if err != nil {
-		return User{}, err
-	}
-	defer conn.Close(ctx)
+func (s Service) FindUserByName(ctx context.Context, username string) (User, error) {
+	// Get the connection form the pool
+	queries := New(s.db)
 
 	// Query the database
-	queries := New(conn)
-
 	return queries.FindByName(ctx, username)
 }
 
-func Exist(ctx context.Context, username string) (bool, error) {
-	// Connect to the database
-	conn, err := connect(ctx)
-	if err != nil {
-		return false, err
-	}
-	defer conn.Close(ctx)
+func (s Service) IsUserExist(ctx context.Context, username string) (bool, error) {
+	// Get the connection form the pool
+	queries := New(s.db)
 
 	// Query the database
-	queries := New(conn)
-
-	_, err = queries.FindByName(ctx, username)
+	_, err := queries.FindByName(ctx, username)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return false, nil
 		}
 		return false, err
@@ -78,9 +67,9 @@ func Exist(ctx context.Context, username string) (bool, error) {
 	return true, nil
 }
 
-func Register(u RegisterRequest) (string, error) {
+func (s Service) Register(ctx context.Context, u RegisterRequest) (string, error) {
 	// Check if the user already exists
-	isUserExist, err := Exist(context.Background(), u.Username)
+	isUserExist, err := s.IsUserExist(ctx, u.Username)
 	if err != nil {
 		return "", errors.New("error_checking_user")
 	}
@@ -89,7 +78,7 @@ func Register(u RegisterRequest) (string, error) {
 	}
 
 	// Create the user
-	hashedPassword, err := HashPassword(u.Password)
+	hashedPassword, err := s.HashPassword(u.Password)
 	if err != nil {
 		return "", errors.New("error_hashing_password")
 	}
@@ -99,7 +88,7 @@ func Register(u RegisterRequest) (string, error) {
 		Password: hashedPassword,
 	}
 
-	_, err = CreateUser(context.Background(), user)
+	_, err = s.CreateUser(ctx, user)
 	if err != nil {
 		fmt.Println("when creating user: ", err)
 		return "", errors.New("error_registering_user")
@@ -114,18 +103,18 @@ func Register(u RegisterRequest) (string, error) {
 	return tokenString, err
 }
 
-func Login(u LoginRequest) (string, error) {
+func (s Service) Login(ctx context.Context, u LoginRequest) (string, error) {
 	// Find user by names
-	user, err := FindByName(context.Background(), u.Username)
+	user, err := s.FindUserByName(ctx, u.Username)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return "", errors.New("user_not_found")
 		}
 		return "", errors.New("error_finding_user")
 	}
 
 	// Check if the password is correct
-	if !VerifyPassword(u.Password, user.Password) {
+	if !s.VerifyPassword(u.Password, user.Password) {
 		return "", errors.New("incorrect_password")
 	}
 
