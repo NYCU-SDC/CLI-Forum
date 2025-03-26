@@ -15,17 +15,6 @@ import (
 )
 
 func main() {
-	// Load .env file
-	err := godotenv.Load(".env")
-	if err != nil {
-		fmt.Println("Error loading .env file : ", err)
-	}
-
-	// initial migration service
-	migrationService := database.NewMigrationService(os.Getenv("DATABASE_URL"), "internal/database/migrations")
-	migrationService.Up()
-	defer migrationService.Down()
-
 	// initialize logger
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -39,7 +28,18 @@ func main() {
 		}
 	}() // flushes buffer, if any
 
-	sugar := logger.Sugar()
+	// Load .env file
+	err = godotenv.Load(".env")
+	if err != nil {
+
+		logger.Error("Error loading .env file",
+			zap.Error(err))
+	}
+
+	// initial migration service
+	migrationService := database.NewMigrationService(logger, os.Getenv("DATABASE_URL"), "internal/database/migrations")
+	migrationService.Up()
+	defer migrationService.Down()
 
 	// initialize database
 	dbpool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
@@ -49,9 +49,9 @@ func main() {
 	defer dbpool.Close()
 
 	// initialize jwt service
-	jwtService := jwt.NewService([]byte(os.Getenv("BACKEND_SECRET_KEY")), 15)
+	jwtService := jwt.NewService(logger, []byte(os.Getenv("BACKEND_SECRET_KEY")), 15)
 	// initialize auth service
-	authService := auth.NewService(dbpool, jwtService)
+	authService := auth.NewService(logger, dbpool, jwtService)
 	authHandler := auth.NewHandler(authService)
 
 	// initialize mux
@@ -62,9 +62,9 @@ func main() {
 	mux.HandleFunc("POST /register", authHandler.RegisterHandler)
 
 	// start server on port 8090
-	sugar.Info("Server starting on localhost:8090")
+	logger.Info("Server starting on localhost:8090")
 	err = http.ListenAndServe("localhost:8090", mux)
 	if err != nil {
-		sugar.Fatal("Fail to start server with error : ", err)
+		logger.Fatal("Fail to start server with error : ", zap.Error(err))
 	}
 }

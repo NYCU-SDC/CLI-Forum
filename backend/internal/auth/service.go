@@ -4,22 +4,24 @@ import (
 	"backend/internal/jwt"
 	"context"
 	"errors"
-	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Service struct {
-	db  *pgxpool.Pool
-	jwt *jwt.Service
+	logger *zap.Logger
+	db     *pgxpool.Pool
+	jwt    *jwt.Service
 }
 
-func NewService(db *pgxpool.Pool, jwt *jwt.Service) *Service {
+func NewService(logger *zap.Logger, db *pgxpool.Pool, jwt *jwt.Service) *Service {
 	return &Service{
-		db:  db,
-		jwt: jwt,
+		logger: logger,
+		db:     db,
+		jwt:    jwt,
 	}
 }
 
@@ -73,6 +75,7 @@ func (s Service) Register(ctx context.Context, u RegisterRequest) (string, error
 	// Check if the user already exists
 	isUserExist, err := s.IsUserExist(ctx, u.Username)
 	if err != nil {
+		s.logger.Error("error when checking if user exist", zap.String("username", u.Username), zap.Error(err))
 		return "", errors.New("error_checking_user")
 	}
 	if isUserExist {
@@ -82,6 +85,7 @@ func (s Service) Register(ctx context.Context, u RegisterRequest) (string, error
 	// Create the user
 	hashedPassword, err := s.HashPassword(u.Password)
 	if err != nil {
+		s.logger.Error("error when hashing password", zap.String("password", u.Password), zap.Error(err))
 		return "", errors.New("error_hashing_password")
 	}
 
@@ -92,13 +96,14 @@ func (s Service) Register(ctx context.Context, u RegisterRequest) (string, error
 
 	_, err = s.CreateUser(ctx, user)
 	if err != nil {
-		fmt.Println("when creating user: ", err)
+		s.logger.Error("error when creating user", zap.String("username", u.Username), zap.String("password", u.Password), zap.Error(err))
 		return "", errors.New("error_registering_user")
 	}
 
 	// Registration successful, generate a token
 	tokenString, err := s.jwt.New(u.Username)
 	if err != nil {
+		s.logger.Error("error when generating token", zap.String("username", u.Username), zap.Error(err))
 		return "", errors.New("error_generating_token")
 	}
 
@@ -112,6 +117,7 @@ func (s Service) Login(ctx context.Context, u LoginRequest) (string, error) {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", errors.New("user_not_found")
 		}
+		s.logger.Error("error when finding user", zap.String("username", u.Username), zap.Error(err))
 		return "", errors.New("error_finding_user")
 	}
 
@@ -123,6 +129,7 @@ func (s Service) Login(ctx context.Context, u LoginRequest) (string, error) {
 	// Login successful, generate a token
 	tokenString, err := s.jwt.New(u.Username)
 	if err != nil {
+		s.logger.Error("error when generating token", zap.String("username", u.Username), zap.Error(err))
 		return "", errors.New("error_generating_token")
 	}
 

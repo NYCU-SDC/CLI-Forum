@@ -2,6 +2,7 @@ package jwt
 
 import (
 	"fmt"
+	"go.uber.org/zap"
 	"net/http"
 	"strings"
 )
@@ -11,11 +12,13 @@ type Verifier interface {
 }
 
 type MiddlewareService struct {
+	logger   *zap.Logger
 	verifier Verifier
 }
 
 func NewMiddleware(service Service) MiddlewareService {
 	return MiddlewareService{
+		logger:   service.logger,
 		verifier: service,
 	}
 }

@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"go.uber.org/zap"
 	"net/http"
 )
 
@@ -12,12 +13,14 @@ type UserService interface {
 }
 
 type Handler struct {
+	logger      *zap.Logger
 	userService UserService
 }
 
 func NewHandler(service *Service) *Handler {
 	// build interfaces from the service
 	return &Handler{
+		logger:      service.logger,
 		userService: service,
 	}
 }

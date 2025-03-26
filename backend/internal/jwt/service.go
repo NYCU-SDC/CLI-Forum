@@ -1,19 +1,22 @@
 package jwt
 
 import (
-	"fmt"
+	"errors"
+	"go.uber.org/zap"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
 type Service struct {
+	logger     *zap.Logger
 	key        []byte
 	expiration time.Duration
 }
 
-func NewService(key []byte, expiration time.Duration) *Service {
+func NewService(logger *zap.Logger, key []byte, expiration time.Duration) *Service {
 	return &Service{
+		logger:     logger,
 		key:        key,
 		expiration: expiration,
 	}
@@ -39,6 +42,7 @@ func (s Service) New(username string) (string, error) {
 
 	tokenString, err := token.SignedString(s.key)
 	if err != nil {
+		s.logger.Error("error when generating JWT token", zap.String("username", username), zap.Error(err))
 		return "", err
 	}
 
@@ -51,11 +55,12 @@ func (s Service) Verify(tokenString string) error {
 	})
 
 	if err != nil {
+		s.logger.Error("error when generating JWT token", zap.String("token", tokenString), zap.Error(err))
 		return err
 	}
 
 	if !token.Valid {
-		return fmt.Errorf("invalid token")
+		return errors.New("invalid token")
 	}
 
 	return nil
@@ -71,7 +76,7 @@ func (s Service) Parse(tokenString string) (User, error) {
 
 	parsedToken, ok := token.Claims.(*claims)
 	if !ok || !token.Valid {
-		return User{}, fmt.Errorf("invalid token")
+		return User{}, errors.New("invalid token")
 	}
 
 	return User{Username: parsedToken.username}, nil

@@ -2,21 +2,23 @@ package database
 
 import (
 	"errors"
-	"fmt"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"go.uber.org/zap"
 )
 
 type MigrationService struct {
-	dbURL string
-	files string
+	logger *zap.Logger
+	dbURL  string
+	files  string
 }
 
-func NewMigrationService(dbURL string, files string) *MigrationService {
+func NewMigrationService(logger *zap.Logger, dbURL string, files string) *MigrationService {
 	return &MigrationService{
-		dbURL: dbURL,
-		files: files,
+		logger: logger,
+		dbURL:  dbURL,
+		files:  files,
 	}
 }
 
@@ -29,13 +31,13 @@ func (m MigrationService) Up() {
 		m.dbURL,
 	)
 	if err != nil {
-		fmt.Println("failed to create migrate : ", err)
+		m.logger.Fatal("failed to create migration", zap.String("migration file", m.files), zap.String("DB URL", m.dbURL), zap.Error(err))
 	}
 	// if the database was already migrated, it will return ErrNoChange
 	if err := migration.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		fmt.Println("failed to migrate : ", err)
+		m.logger.Fatal("failed to migrate", zap.String("migration file", m.files), zap.String("DB URL", m.dbURL), zap.Error(err))
 	}
-	fmt.Println("migration success")
+	m.logger.Info("migrated successfully", zap.String("migration file", m.files))
 }
 
 func (m MigrationService) Down() {
@@ -47,11 +49,11 @@ func (m MigrationService) Down() {
 		m.dbURL,
 	)
 	if err != nil {
-		fmt.Println("failed to create migrate : ", err)
+		m.logger.Fatal("failed to create migration", zap.String("migration file", m.files), zap.String("DB URL", m.dbURL), zap.Error(err))
 	}
 	// if the database was already migrated, it will return ErrNoChange
 	if err := migration.Down(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		fmt.Println("failed to migrate : ", err)
+		m.logger.Fatal("failed to migrate", zap.String("migration file", m.files), zap.String("DB URL", m.dbURL), zap.Error(err))
 	}
-	fmt.Println("migrate success")
+	m.logger.Info("migrated successfully", zap.String("migration file", m.files))
 }
