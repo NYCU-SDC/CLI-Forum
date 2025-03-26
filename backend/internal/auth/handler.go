@@ -3,7 +3,9 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
+	"io"
 	"net/http"
 )
 
@@ -26,8 +28,8 @@ func NewHandler(service *Service) *Handler {
 }
 
 type RegisterRequest struct {
-	Username string `json:"user"`
-	Password string `json:"password"`
+	Username string `json:"user" validate:"required"`
+	Password string `json:"password" validate:"required"`
 }
 
 type LoginRequest struct {
@@ -47,7 +49,19 @@ func (h Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			h.logger.Error("error when closing body", zap.Error(err))
+		}
+	}(r.Body)
+
+	// check if the username or password is empty
+	validate := validator.New()
+	err = validate.Struct(u)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 
 	// Call the Register function
 	token, err := h.userService.Register(context.Background(), u)
@@ -56,6 +70,7 @@ func (h Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusConflict)
 			return
 		}
+		h.logger.Error("error when registering user", zap.String("username", u.Username), zap.String("password", u.Password), zap.Error(err))
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -78,7 +93,12 @@ func (h Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			h.logger.Error("error closing request body", zap.Error(err))
+		}
+	}(r.Body)
 
 	// Call the Login function
 	token, err := h.userService.Login(context.Background(), u)
