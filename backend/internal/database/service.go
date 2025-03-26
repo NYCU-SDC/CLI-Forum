@@ -1,47 +1,56 @@
 package database
 
 import (
+	"errors"
 	"fmt"
-	"os"
-
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
-var migratetionFiles = "internal/database/migrations"
-
-func MigrateUP() {
-	// initialize migratetion
-	m, err := migrate.New(
-		// migration files
-		"file://"+migratetionFiles,
-		// connection string
-		os.Getenv("DATABASE_URL"),
-	)
-	if err != nil {
-		fmt.Println("failed to create migrate : ", err)
-	}
-	// if the database was already migrated, it will return ErrNoChange
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		fmt.Println("failed to migrate : ", err)
-	}
-	fmt.Println("migratrate success")
+type MigrationService struct {
+	dbURL string
+	files string
 }
 
-func MigrateDown() {
-	// initialize migratetion
-	m, err := migrate.New(
+func NewMigrationService(dbURL string, files string) *MigrationService {
+	return &MigrationService{
+		dbURL: dbURL,
+		files: files,
+	}
+}
+
+func (m MigrationService) Up() {
+	// initialize migration
+	migration, err := migrate.New(
 		// migration files
-		"file://"+migratetionFiles,
+		"file://"+m.files,
 		// connection string
-		os.Getenv("DATABASE_URL"),
+		m.dbURL,
 	)
 	if err != nil {
 		fmt.Println("failed to create migrate : ", err)
 	}
 	// if the database was already migrated, it will return ErrNoChange
-	if err := m.Down(); err != nil && err != migrate.ErrNoChange {
+	if err := migration.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		fmt.Println("failed to migrate : ", err)
+	}
+	fmt.Println("migration success")
+}
+
+func (m MigrationService) Down() {
+	// initialize migration
+	migration, err := migrate.New(
+		// migration files
+		"file://"+m.files,
+		// connection string
+		m.dbURL,
+	)
+	if err != nil {
+		fmt.Println("failed to create migrate : ", err)
+	}
+	// if the database was already migrated, it will return ErrNoChange
+	if err := migration.Down(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		fmt.Println("failed to migrate : ", err)
 	}
 	fmt.Println("migrate success")

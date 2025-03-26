@@ -20,8 +20,10 @@ func main() {
 		fmt.Println("Error loading .env file : ", err)
 	}
 
-	database.MigrateUP()
-	defer database.MigrateDown()
+	// initial migration service
+	migrationService := database.NewMigrationService(os.Getenv("DATABASE_URL"), "internal/database/migrations")
+	migrationService.Up()
+	defer migrationService.Down()
 
 	// initialize logger
 	logger, err := zap.NewProduction()
