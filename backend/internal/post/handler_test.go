@@ -39,12 +39,12 @@ func TestHandler_GetPost(t *testing.T) {
 		},
 	}
 
-	m := new(mocks.Servicer)
+	m := new(mocks.Finder)
 	m.On("GetPost", mock.Anything, mock.Anything).Return(post.Post{}, nil)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := post.NewHandler(m, zap.NewExample().Sugar())
+			h := post.NewHandler(m, zap.NewExample())
 			w := httptest.NewRecorder()
 			r := httptest.NewRequest(http.MethodGet, "/post?id="+tt.args.id, nil)
 			h.GetPost(w, r)

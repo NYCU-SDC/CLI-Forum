@@ -17,10 +17,10 @@ type Finder interface {
 
 type Handler struct {
 	Finder Finder
-	logger *zap.SugaredLogger
+	logger *zap.Logger
 }
 
-func NewHandler(f Finder, logger *zap.SugaredLogger) Handler {
+func NewHandler(f Finder, logger *zap.Logger) Handler {
 	return Handler{
 		Finder: f,
 		logger: logger,
@@ -31,7 +31,7 @@ func (h Handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	// Get all posts from the service
 	posts, err := h.Finder.GetAll(r.Context())
 	if err != nil {
-		h.logger.Errorw("Error getting all posts", "error", err)
+		h.logger.Error("Error getting all posts", zap.Error(err))
 		return
 	}
 
@@ -52,7 +52,7 @@ func (h Handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		h.logger.Errorw("error encoding response", "error", err)
+		h.logger.Error("error encoding response", zap.Error(err))
 		return
 	}
 }
@@ -70,7 +70,7 @@ func (h Handler) GetPost(w http.ResponseWriter, r *http.Request) {
 	var id pgtype.UUID
 	err := id.Scan(postID)
 	if err != nil {
-		h.logger.Errorw("error scanning post id", "error", err)
+		h.logger.Error("error scanning post id", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -78,7 +78,7 @@ func (h Handler) GetPost(w http.ResponseWriter, r *http.Request) {
 	// Get the post from the service
 	post, err := h.Finder.GetPost(r.Context(), id)
 	if err != nil {
-		h.logger.Errorw("Error getting post", "error", err)
+		h.logger.Error("Error getting post", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -98,7 +98,7 @@ func (h Handler) GetPost(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		h.logger.Errorw("Error encoding response", zap.Error(err))
+		h.logger.Error("Error encoding response", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -110,7 +110,7 @@ func (h Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	var createRequest CreateRequest
 	err := decoder.Decode(&createRequest)
 	if err != nil {
-		h.logger.Errorw("Error decoding body", "error", err)
+		h.logger.Error("Error decoding body", zap.Error(err))
 		return
 	}
 	defer r.Body.Close()
@@ -118,11 +118,11 @@ func (h Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	// Create the post
 	post, err := h.Finder.CreatePost(r.Context(), createRequest)
 	if err != nil {
-		h.logger.Errorw("Error creating post", "error", err)
+		h.logger.Error("Error creating post", zap.Error(err))
 		return
 	}
 
-	h.logger.Infow("Created post", "id", post.ID.String())
+	h.logger.Info("Created post", zap.String("id", post.ID.String()))
 
 	// Create the response
 	response := Response{
@@ -138,7 +138,7 @@ func (h Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		h.logger.Errorw("Error encoding response", "error", err)
+		h.logger.Error("Error encoding response", zap.Error(err))
 		return
 	}
 }
