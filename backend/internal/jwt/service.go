@@ -2,13 +2,22 @@ package jwt
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtKey = []byte(os.Getenv("BACKEND_SECRET_KEY"))
+type Service struct {
+	key        []byte
+	expiration time.Duration
+}
+
+func NewService(key []byte, expiration time.Duration) *Service {
+	return &Service{
+		key:        key,
+		expiration: expiration,
+	}
+}
 
 type claims struct {
 	username string
@@ -19,16 +28,16 @@ type User struct {
 	Username string `json:"user"`
 }
 
-func New(username string) (string, error) {
+func (s Service) New(username string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims{
 		username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(120 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.expiration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	})
 
-	tokenString, err := token.SignedString(jwtKey)
+	tokenString, err := token.SignedString(s.key)
 	if err != nil {
 		return "", err
 	}
@@ -36,9 +45,9 @@ func New(username string) (string, error) {
 	return tokenString, nil
 }
 
-func Verify(tokenString string) error {
+func (s Service) Verify(tokenString string) error {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
+		return s.key, nil
 	})
 
 	if err != nil {
@@ -52,9 +61,9 @@ func Verify(tokenString string) error {
 	return nil
 }
 
-func Parse(tokenString string) (User, error) {
+func (s Service) Parse(tokenString string) (User, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &claims{}, func(token *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
+		return s.key, nil
 	})
 	if err != nil {
 		return User{}, err

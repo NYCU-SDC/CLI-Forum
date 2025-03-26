@@ -6,7 +6,21 @@ import (
 	"strings"
 )
 
-func Middleware(next http.HandlerFunc) http.HandlerFunc {
+type Verifier interface {
+	Verify(tokenString string) error
+}
+
+type MiddlewareService struct {
+	verifier Verifier
+}
+
+func NewMiddleware(service Service) MiddlewareService {
+	return MiddlewareService{
+		verifier: service,
+	}
+}
+
+func (m MiddlewareService) Middleware(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("JWT Middleware")
 
@@ -20,7 +34,7 @@ func Middleware(next http.HandlerFunc) http.HandlerFunc {
 		tokenString := strings.TrimPrefix(token, "Bearer ")
 
 		// Verify the token
-		err := Verify(tokenString)
+		err := m.verifier.Verify(tokenString)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return

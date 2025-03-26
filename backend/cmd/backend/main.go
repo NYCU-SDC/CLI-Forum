@@ -3,6 +3,7 @@ package main
 import (
 	"backend/internal/auth"
 	"backend/internal/database"
+	"backend/internal/jwt"
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -47,8 +48,10 @@ func main() {
 	}
 	defer dbpool.Close()
 
+	// initialize jwt service
+	jwtService := jwt.NewService([]byte(os.Getenv("BACKEND_SECRET_KEY")), 15)
 	// initialize auth service
-	authService := auth.NewService(dbpool)
+	authService := auth.NewService(dbpool, jwtService)
 	authHandler := auth.NewHandler(authService)
 
 	// initialize mux

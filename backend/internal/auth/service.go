@@ -12,13 +12,15 @@ import (
 )
 
 type Service struct {
-	db *pgxpool.Pool
-
-	count int
+	db  *pgxpool.Pool
+	jwt *jwt.Service
 }
 
-func NewService(db *pgxpool.Pool) *Service {
-	return &Service{db: db}
+func NewService(db *pgxpool.Pool, jwt *jwt.Service) *Service {
+	return &Service{
+		db:  db,
+		jwt: jwt,
+	}
 }
 
 var hashCost = 14
@@ -95,7 +97,7 @@ func (s Service) Register(ctx context.Context, u RegisterRequest) (string, error
 	}
 
 	// Registration successful, generate a token
-	tokenString, err := jwt.New(u.Username)
+	tokenString, err := s.jwt.New(u.Username)
 	if err != nil {
 		return "", errors.New("error_generating_token")
 	}
@@ -119,7 +121,7 @@ func (s Service) Login(ctx context.Context, u LoginRequest) (string, error) {
 	}
 
 	// Login successful, generate a token
-	tokenString, err := jwt.New(u.Username)
+	tokenString, err := s.jwt.New(u.Username)
 	if err != nil {
 		return "", errors.New("error_generating_token")
 	}
