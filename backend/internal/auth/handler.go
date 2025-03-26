@@ -27,16 +27,12 @@ type RegisterRequest struct {
 	Password string `json:"password"`
 }
 
-type RegisterResponse struct {
-	Token string
-}
-
 type LoginRequest struct {
 	Username string `json:"user"`
 	Password string `json:"password"`
 }
 
-type LoginResponse struct {
+type Response struct {
 	Token string
 }
 
@@ -54,7 +50,7 @@ func (h Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	token, err := h.userService.Register(context.Background(), u)
 	if err != nil {
 		if err.Error() == "user_already_exists" {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusConflict)
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -63,7 +59,7 @@ func (h Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Return the token in the response
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(RegisterResponse{Token: token})
+	err = json.NewEncoder(w).Encode(Response{Token: token})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -90,7 +86,7 @@ func (h Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Return the token as a JSON response
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(RegisterResponse{Token: token})
+	err = json.NewEncoder(w).Encode(Response{Token: token})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
