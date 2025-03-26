@@ -12,23 +12,17 @@ import (
 )
 
 const create = `-- name: Create :one
-INSERT INTO posts (id, author_id, title, content) VALUES ($1, $2, $3, $4) RETURNING id, author_id, title, content, create_at
+INSERT INTO posts (author_id, title, content) VALUES ($1, $2, $3) RETURNING id, author_id, title, content, create_at
 `
 
 type CreateParams struct {
-	ID       pgtype.UUID `json:"id"`
-	AuthorID pgtype.UUID `json:"author_id"`
-	Title    pgtype.Text `json:"title"`
-	Content  pgtype.Text `json:"content"`
+	AuthorID pgtype.UUID
+	Title    pgtype.Text
+	Content  pgtype.Text
 }
 
 func (q *Queries) Create(ctx context.Context, arg CreateParams) (Post, error) {
-	row := q.db.QueryRow(ctx, create,
-		arg.ID,
-		arg.AuthorID,
-		arg.Title,
-		arg.Content,
-	)
+	row := q.db.QueryRow(ctx, create, arg.AuthorID, arg.Title, arg.Content)
 	var i Post
 	err := row.Scan(
 		&i.ID,
@@ -101,9 +95,9 @@ UPDATE posts SET title = $2, content = $3 WHERE id = $1 RETURNING id, author_id,
 `
 
 type UpdateParams struct {
-	ID      pgtype.UUID `json:"id"`
-	Title   pgtype.Text `json:"title"`
-	Content pgtype.Text `json:"content"`
+	ID      pgtype.UUID
+	Title   pgtype.Text
+	Content pgtype.Text
 }
 
 func (q *Queries) Update(ctx context.Context, arg UpdateParams) (Post, error) {
