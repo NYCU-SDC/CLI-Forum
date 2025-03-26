@@ -9,3 +9,4 @@ sql:
         package: "post"
         out: "./internal/post"
         sql_package: "pgx/v5"
+        emit_interface: true
