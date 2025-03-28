@@ -101,7 +101,7 @@ func (s Service) Register(ctx context.Context, u RegisterRequest) (string, error
 	}
 
 	// Registration successful, generate a token
-	tokenString, err := s.jwt.New(u.Username)
+	tokenString, err := s.jwt.New(context.TODO(), "", u.Username, "")
 	if err != nil {
 		s.logger.Error("error when generating token", zap.String("username", u.Username), zap.Error(err))
 		return "", errors.New("error_generating_token")
@@ -127,7 +127,7 @@ func (s Service) Login(ctx context.Context, u LoginRequest) (string, error) {
 	}
 
 	// Login successful, generate a token
-	tokenString, err := s.jwt.New(u.Username)
+	tokenString, err := s.jwt.New(context.TODO(), "", u.Username, "")
 	if err != nil {
 		s.logger.Error("error when generating token", zap.String("username", u.Username), zap.Error(err))
 		return "", errors.New("error_generating_token")

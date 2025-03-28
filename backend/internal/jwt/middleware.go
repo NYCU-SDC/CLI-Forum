@@ -18,8 +18,8 @@ type MiddlewareService struct {
 
 func NewMiddleware(service Service) MiddlewareService {
 	return MiddlewareService{
-		logger:   service.logger,
-		verifier: service,
+		logger: service.logger,
+		//verifier: service,
 	}
 }
 

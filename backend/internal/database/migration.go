@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -17,6 +18,7 @@ type MigrateLogger struct {
 
 func (z *MigrateLogger) Printf(format string, v ...interface{}) {
 	message := fmt.Sprintf(format, v...)
+	message = strings.TrimSpace(message)
 	z.logger.Info("Migration event", zap.String("migration", message))
 }
 
@@ -32,8 +34,9 @@ func MigrationUp(sourceURL, databaseURL string, logger *zap.Logger) error {
 
 	version, dirty, err := m.Version()
 	if err != nil {
-		logger.Error("Failed to get migration version", zap.Error(err))
-		return err
+		if !errors.Is(err, migrate.ErrNilVersion) {
+			return err
+		}
 	}
 
 	if version == 0 {

@@ -9,10 +9,13 @@ import (
 	"reflect"
 )
 
+const DefaultSecret = "default-secret"
+
 type Config struct {
 	Debug           bool   `yaml:"debug"            envconfig:"DEBUG"`
 	Host            string `yaml:"host"             envconfig:"HOST"`
 	Port            string `yaml:"port"             envconfig:"PORT"`
+	Secret          string `yaml:"secret"           envconfig:"SECRET"`
 	DatabaseURL     string `yaml:"database_url"     envconfig:"DATABASE_URL"`
 	MigrationSource string `yaml:"migration_source" envconfig:"MIGRATION_SOURCE"`
 }
@@ -24,6 +27,7 @@ func Load() Config {
 		Debug:           false,
 		Host:            "localhost",
 		Port:            "8080",
+		Secret:          DefaultSecret,
 		DatabaseURL:     "",
 		MigrationSource: "file://internal/database/migrations",
 	}
