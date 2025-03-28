@@ -1,0 +1,10 @@
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID FOREIGN KEY REFERENCES posts(id) ON DELETE CASCADE,
+    author_id UUID FOREIGN KEY REFERENCES users(id) ON DELETE CASCADE,
+    TITLE VACHAR(200),
+    content TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
