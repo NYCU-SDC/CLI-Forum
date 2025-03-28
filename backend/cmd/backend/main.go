@@ -34,7 +34,7 @@ func main() {
 		zap.L().Fatal("Failed to initialize logger", zap.Error(err))
 	}
 
-	logger.Info("Running mode", zap.Bool("debug", cfg.Debug), zap.String("host", cfg.Host), zap.String("port", cfg.Port))
+	logger.Info("Application initialization", zap.Bool("debug", cfg.Debug), zap.String("host", cfg.Host), zap.String("port", cfg.Port))
 
 	logger.Info("Starting database migration...")
 	err = database.MigrationUp(cfg.MigrationSource, cfg.DatabaseURL, logger)
