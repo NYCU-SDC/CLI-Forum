@@ -13,10 +13,10 @@ sql:
 
   - &auth
     engine: "postgresql"
-    queries: "internal/auth/queries.sql"
-    schema: "internal/database/migrations/1_user.up.sql"
+    queries: "internal/user/queries.sql"
+    schema: "internal/user/schema.sql"
     gen:
       go: &go_default
-        package: "auth"
-        out: "internal/auth"
+        package: "user"
+        out: "internal/user"
         sql_package: "pgx/v5"
