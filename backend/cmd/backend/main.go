@@ -71,7 +71,7 @@ func main() {
 }
 
 // initLogger create a new logger. If debug is enabled, it will create a development logger without metadata for better readability,
-// otherwise it will create a production logger with metadata.
+// otherwise it will create a production logger with metadata and json format.
 func initLogger(cfg *config.Config, appMetadata []zap.Field) (*zap.Logger, error) {
 	var err error
 	var logger *zap.Logger
