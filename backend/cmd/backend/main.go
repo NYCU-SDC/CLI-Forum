@@ -5,27 +5,33 @@ import (
 	"backend/internal/config"
 	"backend/internal/database"
 	"go.uber.org/zap"
+	"time"
 )
 
+var Version = "no-version"
+
+var BuildTime = "no-build-time"
+
+var CommitHash = "no-commit-hash"
+
 func main() {
-	logger, err := internal.ZapProductionConfig().Build()
-	if err != nil {
-		zap.S().Fatalw("Failed to initialize logger", zap.Error(err))
+	if BuildTime == "no-build-time" {
+		now := time.Now()
+		BuildTime = "not provided (now: " + now.Format(time.RFC3339) + ")"
 	}
 
-	defer func() {
-		err := logger.Sync()
-		if err != nil {
-			zap.S().Errorw("Failed to sync logger", zap.Error(err))
-		}
-	}()
+	appMetadata := []zap.Field{
+		zap.String("version", Version),
+		zap.String("build_time", BuildTime),
+		zap.String("commit_hash", CommitHash),
+	}
 
 	cfg := config.Load()
-	if cfg.Debug {
-		logger, err = zap.NewDevelopment()
-		if err != nil {
-			logger.Fatal("Failed to initialize logger with development config", zap.Error(err))
-		}
+
+	logger, err := initLogger(&cfg, appMetadata)
+	if err != nil {
+		zap.L().Warn("Critical error occurred, exiting...", appMetadata...)
+		zap.L().Fatal("Failed to initialize logger", zap.Error(err))
 	}
 
 	logger.Info("Running mode", zap.Bool("debug", cfg.Debug), zap.String("host", cfg.Host), zap.String("port", cfg.Port))
@@ -62,4 +68,34 @@ func main() {
 	//if err != nil {
 	//	logger.Fatal("Fail to start server with error : ", zap.Error(err))
 	//}
+}
+
+// initLogger create a new logger. If debug is enabled, it will create a development logger without metadata for better readability,
+// otherwise it will create a production logger with metadata.
+func initLogger(cfg *config.Config, appMetadata []zap.Field) (*zap.Logger, error) {
+	var err error
+	var logger *zap.Logger
+	if cfg.Debug {
+		logger, err = zap.NewDevelopment()
+		if err != nil {
+			return nil, err
+		}
+
+		logger.Info("Running in debug mode", appMetadata...)
+	} else {
+		logger, err = internal.ZapProductionConfig().Build()
+		if err != nil {
+			return nil, err
+		}
+
+		logger = logger.With(appMetadata...)
+	}
+	defer func() {
+		err := logger.Sync()
+		if err != nil {
+			zap.S().Errorw("Failed to sync logger", zap.Error(err))
+		}
+	}()
+
+	return logger, nil
 }
