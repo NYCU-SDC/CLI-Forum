@@ -1,0 +1,13 @@
+version: "2"
+sql:
+  - &auth
+    engine: "postgresql"
+    queries: "internal/comment/queries.sql"
+    schema: "database/migrations/1_comment.up.sql"
+    gen:
+      go: &go_default
+        package: "comment"
+        out: "internal/comment"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_json_tags: true
