@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"flag"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -20,9 +21,7 @@ type Config struct {
 	MigrationSource string `yaml:"migration_source" envconfig:"MIGRATION_SOURCE"`
 }
 
-// Load merges config from file, env and cli flags
 func Load() Config {
-	// Default config
 	config := &Config{
 		Debug:           false,
 		Host:            "localhost",
@@ -32,17 +31,22 @@ func Load() Config {
 		MigrationSource: "file://internal/database/migrations",
 	}
 
-	config, err := FromFile("config.yaml", config)
+	var err error
+
+	config, err = FromFile("config.yaml", config)
 	if err != nil {
 		zap.L().Warn("Failed to load config from file", zap.Error(err), zap.String("path", "config.yaml"))
 	}
 
-	_, err = FromEnv(config)
+	config, err = FromEnv(config)
 	if err != nil {
 		zap.L().Warn("Failed to load config from env", zap.Error(err))
 	}
 
-	FromFlags(config)
+	config, err = FromFlags(config)
+	if err != nil {
+		zap.L().Warn("Failed to load config from flags", zap.Error(err))
+	}
 
 	return *config
 }
@@ -50,66 +54,75 @@ func Load() Config {
 func FromFile(filePath string, config *Config) (*Config, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return config, err
 	}
-	defer func(file *os.File) {
-		_ = file.Close()
-	}(file)
+	defer file.Close()
 
-	var configFile Config
-	err = yaml.NewDecoder(file).Decode(&configFile)
-	if err != nil {
-		return nil, err
+	fileConfig := Config{}
+	if err := yaml.NewDecoder(file).Decode(&fileConfig); err != nil {
+		return config, err
 	}
 
-	return merge(&configFile, config), nil
+	return merge(config, &fileConfig)
 }
 
 func FromEnv(config *Config) (*Config, error) {
-	err := godotenv.Overload()
-	if err != nil {
-		return nil, err
+	if err := godotenv.Overload(); err != nil {
+		return config, err
 	}
 
-	envConfig := Config{
-		Debug:       os.Getenv("DEBUG") == "true",
-		Host:        os.Getenv("HOST"),
-		Port:        os.Getenv("PORT"),
-		DatabaseURL: os.Getenv("DATABASE_URL"),
+	envConfig := &Config{
+		Debug:           os.Getenv("DEBUG") == "true",
+		Host:            os.Getenv("HOST"),
+		Port:            os.Getenv("PORT"),
+		Secret:          os.Getenv("SECRET"),
+		DatabaseURL:     os.Getenv("DATABASE_URL"),
+		MigrationSource: os.Getenv("MIGRATION_SOURCE"),
 	}
 
-	return merge(&envConfig, config), nil
+	return merge(config, envConfig)
 }
 
-func FromFlags(config *Config) *Config {
+func FromFlags(config *Config) (*Config, error) {
 	flagConfig := &Config{}
 
 	flag.BoolVar(&flagConfig.Debug, "debug", false, "debug mode")
-	flag.StringVar(&flagConfig.Host, "host", "localhost", "host")
-	flag.StringVar(&flagConfig.Port, "port", "8080", "port")
+	flag.StringVar(&flagConfig.Host, "host", "", "host")
+	flag.StringVar(&flagConfig.Port, "port", "", "port")
+	flag.StringVar(&flagConfig.Secret, "secret", "", "secret")
 	flag.StringVar(&flagConfig.DatabaseURL, "database_url", "", "database url")
+	flag.StringVar(&flagConfig.MigrationSource, "migration_source", "", "migration source")
 
 	flag.Parse()
 
-	return merge(flagConfig, config)
+	return merge(config, flagConfig)
 }
 
-// merge merges two config structs, overriding the base with the override when the field is not the zero value
-func merge(base, override *Config) *Config {
-	final := *base
+func merge(base, override *Config) (*Config, error) {
+	if base == nil {
+		return nil, errors.New("base config cannot be nil")
+	}
+	if override == nil {
+		return base, nil
+	}
 
+	final := *base
 	baseVal := reflect.ValueOf(&final).Elem()
 	overrideVal := reflect.ValueOf(override).Elem()
+
+	if baseVal.Type() != overrideVal.Type() {
+		return nil, errors.New("config types do not match")
+	}
 
 	for i := 0; i < baseVal.NumField(); i++ {
 		field := baseVal.Field(i)
 		overrideField := overrideVal.Field(i)
-
 		zero := reflect.Zero(field.Type()).Interface()
-		if !reflect.DeepEqual(overrideField.Interface(), zero) {
+
+		if field.CanSet() && !reflect.DeepEqual(overrideField.Interface(), zero) {
 			field.Set(overrideField)
 		}
 	}
 
-	return &final
+	return &final, nil
 }
