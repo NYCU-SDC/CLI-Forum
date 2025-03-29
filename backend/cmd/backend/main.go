@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 	"log"
+	"net/http"
 	"time"
 )
 
@@ -68,16 +69,21 @@ func main() {
 
 	// initialize service
 	_ = jwt.NewService(logger, cfg.Secret, 24*time.Hour)
-	_ = user.NewService(logger, dbPool)
+	userService := user.NewService(logger, dbPool)
+
+	// initialize handler
+	userHandler := user.NewHandler(logger, userService)
 
 	// initialize auth service
 	//authService := auth.NewService(logger, dbpool, jwtService)
 	//authHandler := auth.NewHandler(authService)
 	//
-	//// initialize mux
-	//mux := http.NewServeMux()
-	//
-	//// set up routes
+	// initialize mux
+	mux := http.NewServeMux()
+
+	// set up routes
+	mux.HandleFunc("POST /api/user", userHandler.CreateHandler)
+
 	//mux.HandleFunc("POST /login", authHandler.LoginHandler)
 	//mux.HandleFunc("POST /register", authHandler.RegisterHandler)
 	//

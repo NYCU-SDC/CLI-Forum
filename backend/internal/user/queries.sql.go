@@ -8,7 +8,7 @@ package user
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 )
 
 const create = `-- name: Create :one
@@ -27,41 +27,59 @@ func (q *Queries) Create(ctx context.Context, arg CreateParams) (User, error) {
 	return i, err
 }
 
-const delete = `-- name: Delete :one
-DELETE FROM users WHERE id = $1 RETURNING id, name, password
+const delete = `-- name: Delete :execrows
+DELETE FROM users WHERE id = $1
 `
 
-func (q *Queries) Delete(ctx context.Context, id pgtype.UUID) (User, error) {
-	row := q.db.QueryRow(ctx, delete, id)
+func (q *Queries) Delete(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, delete, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const getByID = `-- name: GetByID :one
+SELECT id, name, password FROM users WHERE id = $1
+`
+
+func (q *Queries) GetByID(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, getByID, id)
 	var i User
 	err := row.Scan(&i.ID, &i.Name, &i.Password)
 	return i, err
 }
 
-const findByName = `-- name: FindByName :one
-SELECT id, name, password FROM users WHERE name = $1
-`
-
-func (q *Queries) FindByName(ctx context.Context, name string) (User, error) {
-	row := q.db.QueryRow(ctx, findByName, name)
-	var i User
-	err := row.Scan(&i.ID, &i.Name, &i.Password)
-	return i, err
-}
-
-const update = `-- name: Update :one
+const updateName = `-- name: UpdateName :one
 UPDATE users SET name = $2, password = $3 WHERE id = $1 RETURNING id, name, password
 `
 
-type UpdateParams struct {
-	ID       pgtype.UUID
+type UpdateNameParams struct {
+	ID       uuid.UUID
 	Name     string
 	Password string
 }
 
-func (q *Queries) Update(ctx context.Context, arg UpdateParams) (User, error) {
-	row := q.db.QueryRow(ctx, update, arg.ID, arg.Name, arg.Password)
+func (q *Queries) UpdateName(ctx context.Context, arg UpdateNameParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateName, arg.ID, arg.Name, arg.Password)
 	var i User
 	err := row.Scan(&i.ID, &i.Name, &i.Password)
 	return i, err
+}
+
+const updatePassword = `-- name: UpdatePassword :execrows
+UPDATE users SET password = $2 WHERE id = $1
+`
+
+type UpdatePasswordParams struct {
+	ID       uuid.UUID
+	Password string
+}
+
+func (q *Queries) UpdatePassword(ctx context.Context, arg UpdatePasswordParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updatePassword, arg.ID, arg.Password)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
