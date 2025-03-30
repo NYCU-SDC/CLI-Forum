@@ -8,6 +8,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// HasRole is a placeholder for the actual role checking logic, because the role storage is not in project scope.
+func (u User) HasRole(role string) bool {
+	return true
+}
+
 type Service struct {
 	logger *zap.Logger
 	query  *Queries

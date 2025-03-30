@@ -2,11 +2,13 @@ package main
 
 import (
 	"backend/internal"
+	"backend/internal/auth"
 	"backend/internal/config"
 	"backend/internal/database"
 	"backend/internal/jwt"
 	"backend/internal/user"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,6 +24,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -34,7 +37,8 @@ var BuildTime = "no-build-time"
 var CommitHash = "no-commit-hash"
 
 func main() {
-	if AppName == "no-app-name" {
+	AppName = os.Getenv("APP_NAME")
+	if AppName == "" {
 		AppName = "cli-forum-dev"
 	}
 
@@ -51,11 +55,22 @@ func main() {
 	}
 
 	cfg := config.Load()
+	err := cfg.Validate()
+	if err != nil {
+		if errors.Is(err, config.ErrDatabaseURLRequired) {
+			title := "Database URL is required"
+			message := "Please set the DATABASE_URL environment variable or provide a config file with the database_url key."
+			message = internal.EarlyApplicationFailed(title, message)
+			fmt.Println(message)
+			os.Exit(1)
+		} else {
+			log.Fatalf("Failed to validate config: %v, exiting...", err)
+		}
+	}
 
 	logger, err := initLogger(&cfg, appMetadata)
 	if err != nil {
-		zap.L().Warn("Critical error occurred, exiting...", appMetadata...)
-		zap.L().Fatal("Failed to initialize logger", zap.Error(err))
+		log.Fatalf("Failed to initialize logger: %v, exiting...", err)
 	}
 
 	if cfg.Secret == config.DefaultSecret && !cfg.Debug {
@@ -96,11 +111,10 @@ func main() {
 	mux := http.NewServeMux()
 
 	// set up routes
-	mux.HandleFunc("POST /api/user", internal.TraceMiddleware(internal.RecoverMiddleware(jwtMiddleware.Middleware(userHandler.CreateHandler), logger), logger))
+	mux.HandleFunc("POST /api/user", requireUserRoleMiddleware(userHandler.CreateHandler, jwtMiddleware, logger))
+	// This handler duplicates the above handler intentionally for teaching clarity.
+	// mux.HandleFunc("POST /api/user/create", internal.TraceMiddleware(internal.RecoverMiddleware(userHandler.CreateHandler, logger), logger))
 
-	//mux.HandleFunc("POST /login", authHandler.LoginHandler)
-	//mux.HandleFunc("POST /register", authHandler.RegisterHandler)
-	//
 	logger.Info("Starting listening request", zap.String("host", cfg.Host), zap.String("port", cfg.Port))
 	err = http.ListenAndServe(cfg.Host+":"+cfg.Port, mux)
 	if err != nil {
@@ -113,6 +127,14 @@ func main() {
 			logger.Error("Failed to shutdown OpenTelemetry", zap.Error(err))
 		}
 	}()
+}
+
+func basicMiddleware(next http.HandlerFunc, logger *zap.Logger) http.HandlerFunc {
+	return internal.TraceMiddleware(internal.RecoverMiddleware(next, logger), logger)
+}
+
+func requireUserRoleMiddleware(next http.HandlerFunc, jwtMiddleware jwt.Middleware, logger *zap.Logger) http.HandlerFunc {
+	return internal.TraceMiddleware(internal.RecoverMiddleware(jwtMiddleware.Middleware(auth.Middleware(next, logger, "USER")), logger), logger)
 }
 
 // initLogger create a new logger. If debug is enabled, it will create a development logger without metadata for better

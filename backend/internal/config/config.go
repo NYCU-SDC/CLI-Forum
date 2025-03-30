@@ -12,6 +12,8 @@ import (
 
 const DefaultSecret = "default-secret"
 
+var ErrDatabaseURLRequired = errors.New("database_url is required")
+
 type Config struct {
 	Debug            bool   `yaml:"debug"              envconfig:"DEBUG"`
 	Host             string `yaml:"host"               envconfig:"HOST"`
@@ -20,6 +22,14 @@ type Config struct {
 	DatabaseURL      string `yaml:"database_url"       envconfig:"DATABASE_URL"`
 	MigrationSource  string `yaml:"migration_source"   envconfig:"MIGRATION_SOURCE"`
 	OtelCollectorUrl string `yaml:"otel_collector_url" envconfig:"OTEL_COLLECTOR_URL"`
+}
+
+func (c Config) Validate() error {
+	if c.DatabaseURL == "" {
+		return ErrDatabaseURLRequired
+	}
+
+	return nil
 }
 
 func Load() Config {

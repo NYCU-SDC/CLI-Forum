@@ -13,25 +13,25 @@ type Verifier interface {
 	Parse(ctx context.Context, tokenString string) (User, error)
 }
 
-type MiddlewareService struct {
+type Middleware struct {
 	logger *zap.Logger
 	tracer trace.Tracer
 
 	verifier Verifier
 }
 
-func NewMiddleware(verifier Verifier, logger *zap.Logger) MiddlewareService {
+func NewMiddleware(verifier Verifier, logger *zap.Logger) Middleware {
 	name := "middleware/jwt"
 	tracer := otel.Tracer(name)
 
-	return MiddlewareService{
+	return Middleware{
 		tracer:   tracer,
 		logger:   logger,
 		verifier: verifier,
 	}
 }
 
-func (m MiddlewareService) Middleware(next http.HandlerFunc) http.HandlerFunc {
+func (m Middleware) Middleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		traceCtx, span := m.tracer.Start(r.Context(), "JWTMiddleware")
 		defer span.End()

@@ -36,3 +36,20 @@ func NewNotFoundError(table, key, value, message string) NotFoundError {
 		Message: message,
 	}
 }
+
+func EarlyApplicationFailed(title, action string) string {
+	result := `
+-----------------------------------------
+Application Failed to Start
+-----------------------------------------
+
+# What's wrong?
+%s
+
+# How to fix it?
+%s
+`
+
+	result = fmt.Sprintf(result, title, action)
+	return result
+}
