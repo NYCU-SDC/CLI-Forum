@@ -28,7 +28,6 @@ func Middleware(next http.HandlerFunc, logger *zap.Logger, requiredRoles ...stri
 
 		u := r.Context().Value("user").(jwt.User)
 		for _, role := range requiredRoles {
-			// Always true when user logged in
 			if u.HasRole(role) {
 				logger.Debug("User passes role check", zap.String("role", role))
 				span.AddEvent("UserPassesRoleCheck", trace.WithAttributes(attribute.String("role", role)))
