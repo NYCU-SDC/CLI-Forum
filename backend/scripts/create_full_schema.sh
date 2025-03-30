@@ -46,5 +46,3 @@ find ./internal -maxdepth 2 -type f -name "queries.sql" | while read -r QUERY_FI
               type: "UUID"
 EOF
 done
-
-echo "Generated $SQLC_YAML with configurations for all found queries.sql files"
