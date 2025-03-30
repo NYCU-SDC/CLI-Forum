@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"go.uber.org/zap"
 )
 
 const (
@@ -16,7 +17,7 @@ const (
 )
 
 var (
-	ErrDuplicateKey        = errors.New("duplicate key value")
+	ErrUniqueViolation     = errors.New("unique constraint violation")
 	ErrForeignKeyViolation = errors.New("foreign key violation")
 	ErrDeadlockDetected    = errors.New("deadlock detected")
 	ErrQueryTimeout        = errors.New("query timed out")
@@ -30,10 +31,12 @@ func (e InternalServerError) Error() string {
 	return fmt.Sprintf("internal server error: %s", e.Source.Error())
 }
 
-func WrapDBError(err error) error {
+func WrapDBError(err error, logger *zap.Logger) error {
 	if err == nil {
 		return nil
 	}
+
+	logger.Warn("Wrapping database error", zap.Error(err))
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("%w: %v", internal.ErrNotFound, err)
@@ -47,7 +50,7 @@ func WrapDBError(err error) error {
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
 		case PGErrUniqueViolation:
-			return fmt.Errorf("%w: %v", ErrDuplicateKey, err)
+			return fmt.Errorf("%w: %v", ErrUniqueViolation, err)
 		case PGErrForeignKeyViolation:
 			return fmt.Errorf("%w: %v", ErrForeignKeyViolation, err)
 		case PGErrDeadlockDetected:
@@ -58,10 +61,12 @@ func WrapDBError(err error) error {
 	return InternalServerError{Source: err}
 }
 
-func WrapDBErrorWithKeyValue(err error, table, key, value string) error {
+func WrapDBErrorWithKeyValue(err error, table, key, value string, logger *zap.Logger) error {
 	if err == nil {
 		return nil
 	}
+
+	logger.Warn("Wrapping database error with key value", zap.Error(err), zap.String("table", table), zap.String("key", key), zap.String("value", value))
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return internal.NewNotFoundError(table, key, value, "")
@@ -75,7 +80,7 @@ func WrapDBErrorWithKeyValue(err error, table, key, value string) error {
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
 		case PGErrUniqueViolation:
-			return fmt.Errorf("%w: %v", ErrDuplicateKey, err)
+			return fmt.Errorf("%w: %v", ErrUniqueViolation, err)
 		case PGErrForeignKeyViolation:
 			return fmt.Errorf("%w: %v", ErrForeignKeyViolation, err)
 		case PGErrDeadlockDetected:

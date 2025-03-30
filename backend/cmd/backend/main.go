@@ -60,7 +60,7 @@ func main() {
 		if errors.Is(err, config.ErrDatabaseURLRequired) {
 			title := "Database URL is required"
 			message := "Please set the DATABASE_URL environment variable or provide a config file with the database_url key."
-			message = internal.EarlyApplicationFailed(title, message)
+			message = EarlyApplicationFailed(title, message)
 			fmt.Println(message)
 			os.Exit(1)
 		} else {
@@ -97,6 +97,8 @@ func main() {
 		logger.Fatal("Failed to initialize OpenTelemetry", zap.Error(err))
 	}
 
+	validator := internal.NewValidator()
+
 	// initialize service
 	jwtService := jwt.NewService(logger, cfg.Secret, 24*time.Hour)
 	userService := user.NewService(logger, dbPool)
@@ -105,15 +107,20 @@ func main() {
 	jwtMiddleware := jwt.NewMiddleware(jwtService, logger)
 
 	// initialize handler
-	userHandler := user.NewHandler(logger, userService)
+	authHandler := auth.NewHandler(validator, logger, userService, jwtService)
+	userHandler := user.NewHandler(validator, logger, userService)
 
 	// initialize mux
 	mux := http.NewServeMux()
 
 	// set up routes
-	mux.HandleFunc("POST /api/user", requireUserRoleMiddleware(userHandler.CreateHandler, jwtMiddleware, logger))
+	mux.HandleFunc("POST /api/login", basicMiddleware(authHandler.LoginHandler, logger, cfg.Debug))
 	// This handler duplicates the above handler intentionally for teaching clarity.
-	// mux.HandleFunc("POST /api/user/create", internal.TraceMiddleware(internal.RecoverMiddleware(userHandler.CreateHandler, logger), logger))
+	// mux.HandleFunc("POST /api/login", internal.TraceMiddleware(internal.RecoverMiddleware(authHandler.LoginHandler, logger), logger))
+
+	mux.HandleFunc("POST /api/register", basicMiddleware(authHandler.RegisterHandler, logger, cfg.Debug))
+
+	mux.HandleFunc("POST /api/user", requireUserRoleMiddleware(userHandler.CreateHandler, jwtMiddleware, logger, cfg.Debug))
 
 	logger.Info("Starting listening request", zap.String("host", cfg.Host), zap.String("port", cfg.Port))
 	err = http.ListenAndServe(cfg.Host+":"+cfg.Port, mux)
@@ -129,12 +136,12 @@ func main() {
 	}()
 }
 
-func basicMiddleware(next http.HandlerFunc, logger *zap.Logger) http.HandlerFunc {
-	return internal.TraceMiddleware(internal.RecoverMiddleware(next, logger), logger)
+func basicMiddleware(next http.HandlerFunc, logger *zap.Logger, debug bool) http.HandlerFunc {
+	return internal.TraceMiddleware(internal.RecoverMiddleware(next, logger, debug), logger)
 }
 
-func requireUserRoleMiddleware(next http.HandlerFunc, jwtMiddleware jwt.Middleware, logger *zap.Logger) http.HandlerFunc {
-	return internal.TraceMiddleware(internal.RecoverMiddleware(jwtMiddleware.HandlerFunc(auth.Middleware(next, logger, "USER")), logger), logger)
+func requireUserRoleMiddleware(next http.HandlerFunc, jwtMiddleware jwt.Middleware, logger *zap.Logger, debug bool) http.HandlerFunc {
+	return internal.TraceMiddleware(internal.RecoverMiddleware(jwtMiddleware.HandlerFunc(auth.Middleware(next, logger, "USER")), logger, debug), logger)
 }
 
 // initLogger create a new logger. If debug is enabled, it will create a development logger without metadata for better
@@ -252,4 +259,21 @@ func initGrpcConn(target string) (*grpc.ClientConn, error) {
 	}
 
 	return conn, err
+}
+
+func EarlyApplicationFailed(title, action string) string {
+	result := `
+-----------------------------------------
+Application Failed to Start
+-----------------------------------------
+
+# What's wrong?
+%s
+
+# How to fix it?
+%s
+`
+
+	result = fmt.Sprintf(result, title, action)
+	return result
 }

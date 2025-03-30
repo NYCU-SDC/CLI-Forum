@@ -2,7 +2,7 @@ package auth
 
 import (
 	"backend/internal"
-	"backend/internal/user"
+	"backend/internal/jwt"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -26,7 +26,7 @@ func Middleware(next http.HandlerFunc, logger *zap.Logger, requiredRoles ...stri
 			return
 		}
 
-		u := r.Context().Value("user").(user.User)
+		u := r.Context().Value("user").(jwt.User)
 		for _, role := range requiredRoles {
 			// Always true when user logged in
 			if u.HasRole(role) {

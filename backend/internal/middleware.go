@@ -8,6 +8,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"net/http"
+	"runtime"
 )
 
 func TraceMiddleware(next http.HandlerFunc, logger *zap.Logger) http.HandlerFunc {
@@ -40,7 +41,7 @@ func TraceMiddleware(next http.HandlerFunc, logger *zap.Logger) http.HandlerFunc
 	}
 }
 
-func RecoverMiddleware(next http.HandlerFunc, logger *zap.Logger) http.HandlerFunc {
+func RecoverMiddleware(next http.HandlerFunc, logger *zap.Logger, debug bool) http.HandlerFunc {
 	name := "middleware/trace"
 	tracer := otel.Tracer(name)
 
@@ -49,9 +50,16 @@ func RecoverMiddleware(next http.HandlerFunc, logger *zap.Logger) http.HandlerFu
 		logger = LoggerWithContext(traceCtx, logger)
 
 		defer func() {
-			if err := recover(); err != nil {
-				span.AddEvent("PanicRecovered", trace.WithAttributes(attribute.String("panic", fmt.Sprintf("%v", err))))
-				logger.Error("Recovered from panic", zap.Any("error", err))
+			needRecovery, errString, caller := PanicRecoveryError(recover())
+			if needRecovery {
+				span.AddEvent("PanicRecovered", trace.WithAttributes(attribute.String("panic", fmt.Sprintf("%v", errString))))
+				logger.Error("Recovered from panic", zap.Any("error", errString), zap.String("trace", fmt.Sprintf("%s", caller)))
+				if debug {
+					for _, line := range caller {
+						fmt.Printf("\t%s\n", line)
+					}
+				}
+
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			}
 
@@ -60,4 +68,26 @@ func RecoverMiddleware(next http.HandlerFunc, logger *zap.Logger) http.HandlerFu
 
 		next(w, r.WithContext(traceCtx))
 	}
+}
+
+func PanicRecoveryError(err any) (bool, string, []string) {
+	if err == nil {
+		return false, "", nil
+	}
+
+	var callers []string
+	for i := 2; ; /* 1 for New() 2 for NewPanicRecoveryError */ i++ {
+		_, file, line, got := runtime.Caller(i)
+		if !got {
+			break
+		}
+
+		callers = append(callers, fmt.Sprintf("%s:%d", file, line))
+	}
+
+	if parseErr, ok := err.(error); ok {
+		return true, parseErr.Error(), callers
+	}
+
+	return true, fmt.Sprintf("%v", err), callers
 }

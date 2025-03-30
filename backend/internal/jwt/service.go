@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -27,9 +28,9 @@ func NewService(logger *zap.Logger, secret string, expiration time.Duration) *Se
 }
 
 type claims struct {
-	id       string
-	username string
-	role     string
+	ID       string
+	Username string
+	Role     string
 	jwt.RegisteredClaims
 }
 
@@ -39,15 +40,19 @@ type User struct {
 	Role     string `json:"role"`
 }
 
+func (u User) HasRole(role string) bool {
+	return u.Role == role
+}
+
 func (s Service) New(ctx context.Context, id, username string, role string) (string, error) {
 	logger := internal.LoggerWithContext(ctx, s.logger)
 
 	jwtID := uuid.New()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims{
-		id:       id,
-		username: username,
-		role:     role,
+		ID:       id,
+		Username: username,
+		Role:     role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "CLI-Forum",
 			Subject:   id,
@@ -58,7 +63,7 @@ func (s Service) New(ctx context.Context, id, username string, role string) (str
 		},
 	})
 
-	tokenString, err := token.SignedString(s.secret)
+	tokenString, err := token.SignedString([]byte(s.secret))
 	if err != nil {
 		logger.Error("Failed to sign token", zap.Error(err), zap.String("id", id), zap.String("username", username), zap.String("role", role))
 		return "", err
@@ -72,8 +77,12 @@ func (s Service) New(ctx context.Context, id, username string, role string) (str
 func (s Service) Parse(ctx context.Context, tokenString string) (User, error) {
 	logger := internal.LoggerWithContext(ctx, s.logger)
 
+	if strings.HasPrefix(tokenString, "Bearer ") {
+		tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+	}
+
 	token, err := jwt.ParseWithClaims(tokenString, &claims{}, func(token *jwt.Token) (interface{}, error) {
-		return s.secret, nil
+		return []byte(s.secret), nil
 	})
 	if err != nil {
 		switch {
@@ -103,6 +112,7 @@ func (s Service) Parse(ctx context.Context, tokenString string) (User, error) {
 			return User{}, err
 		default:
 			logger.Error("Failed to parse or validate JWT token", zap.Error(err))
+			return User{}, err
 		}
 	}
 
@@ -112,11 +122,11 @@ func (s Service) Parse(ctx context.Context, tokenString string) (User, error) {
 		return User{}, fmt.Errorf("failed to extract claims from JWT token")
 	}
 
-	logger.Debug("Successfully parsed JWT token", zap.String("id", claims.id), zap.String("username", claims.username), zap.String("role", claims.role))
+	logger.Debug("Successfully parsed JWT token", zap.String("id", claims.ID), zap.String("username", claims.Username), zap.String("role", claims.Role))
 
 	return User{
-		ID:       claims.id,
-		Username: claims.username,
-		Role:     claims.role,
+		ID:       claims.ID,
+		Username: claims.Username,
+		Role:     claims.Role,
 	}, nil
 }

@@ -11,24 +11,26 @@ import (
 // ZapProductionConfig returns a zap.Config same as zap.NewProduction() but without sampling
 func ZapProductionConfig() zap.Config {
 	return zap.Config{
-		Level:            zap.NewAtomicLevelAt(zap.InfoLevel),
-		Development:      false,
-		Encoding:         "json",
-		EncoderConfig:    zap.NewProductionEncoderConfig(),
-		OutputPaths:      []string{"stderr"},
-		ErrorOutputPaths: []string{"stderr"},
+		Level:             zap.NewAtomicLevelAt(zap.InfoLevel),
+		Development:       false,
+		DisableStacktrace: true,
+		Encoding:          "json",
+		EncoderConfig:     zap.NewProductionEncoderConfig(),
+		OutputPaths:       []string{"stderr"},
+		ErrorOutputPaths:  []string{"stderr"},
 	}
 }
 
 // ZapDevelopmentConfig returns a zap.Config same as zap.NewProduction() but with more pretty output
 func ZapDevelopmentConfig() zap.Config {
 	config := zap.Config{
-		Level:            zap.NewAtomicLevelAt(zap.DebugLevel),
-		Development:      true,
-		Encoding:         "console",
-		EncoderConfig:    zap.NewDevelopmentEncoderConfig(),
-		OutputPaths:      []string{"stdout"},
-		ErrorOutputPaths: []string{"stderr"},
+		Level:             zap.NewAtomicLevelAt(zap.DebugLevel),
+		Development:       true,
+		DisableStacktrace: true,
+		Encoding:          "console",
+		EncoderConfig:     zap.NewDevelopmentEncoderConfig(),
+		OutputPaths:       []string{"stdout"},
+		ErrorOutputPaths:  []string{"stderr"},
 	}
 
 	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder

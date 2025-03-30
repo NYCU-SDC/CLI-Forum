@@ -2,7 +2,10 @@ package user
 
 import (
 	"backend/internal"
+	"backend/internal/jwt"
 	"context"
+	"fmt"
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"net/http"
@@ -17,14 +20,16 @@ type Store interface {
 }
 
 type Handler struct {
-	Logger *zap.Logger
-	Store  Store
+	Validator *validator.Validate
+	Logger    *zap.Logger
+	Store     Store
 }
 
-func NewHandler(logger *zap.Logger, store Store) *Handler {
+func NewHandler(validator *validator.Validate, logger *zap.Logger, store Store) *Handler {
 	return &Handler{
-		Logger: logger,
-		Store:  store,
+		Validator: validator,
+		Logger:    logger,
+		Store:     store,
 	}
 }
 
@@ -32,7 +37,6 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	logger := internal.LoggerWithContext(r.Context(), h.Logger)
 	logger.Debug("CreateHandler called")
 
-	panic("test panic")
-
-	w.Write([]byte("CreateHandler"))
+	user := r.Context().Value("user").(jwt.User)
+	fmt.Printf("Is you %s !", user.Username)
 }
