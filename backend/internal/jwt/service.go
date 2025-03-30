@@ -77,9 +77,7 @@ func (s Service) New(ctx context.Context, id, username string, role string) (str
 func (s Service) Parse(ctx context.Context, tokenString string) (User, error) {
 	logger := internal.LoggerWithContext(ctx, s.logger)
 
-	if strings.HasPrefix(tokenString, "Bearer ") {
-		tokenString = strings.TrimPrefix(tokenString, "Bearer ")
-	}
+	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
 
 	token, err := jwt.ParseWithClaims(tokenString, &claims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(s.secret), nil

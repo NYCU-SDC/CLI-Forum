@@ -9,6 +9,8 @@ import (
 	"net/http"
 )
 
+const UserContextKey = "user"
+
 type Verifier interface {
 	Parse(ctx context.Context, tokenString string) (User, error)
 }
@@ -52,7 +54,7 @@ func (m Middleware) HandlerFunc(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		logger.Debug("Authorization header valid")
-		r = r.WithContext(context.WithValue(traceCtx, "user", user))
+		r = r.WithContext(context.WithValue(traceCtx, UserContextKey, user))
 		next.ServeHTTP(w, r)
 	}
 }
