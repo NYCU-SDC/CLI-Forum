@@ -1,49 +1,58 @@
 package jwt
 
 import (
-	"fmt"
+	"backend/internal"
+	"context"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"net/http"
-	"strings"
 )
 
 type Verifier interface {
-	Verify(token string) error
+	Parse(ctx context.Context, tokenString string) (User, error)
 }
 
 type MiddlewareService struct {
-	logger   *zap.Logger
+	logger *zap.Logger
+	tracer trace.Tracer
+
 	verifier Verifier
 }
 
 func NewMiddleware(verifier Verifier, logger *zap.Logger) MiddlewareService {
+	name := "middleware/jwt"
+	tracer := otel.Tracer(name)
+
 	return MiddlewareService{
+		tracer:   tracer,
 		logger:   logger,
 		verifier: verifier,
 	}
 }
 
 func (m MiddlewareService) Middleware(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("JWT Middleware")
+	return func(w http.ResponseWriter, r *http.Request) {
+		traceCtx, span := m.tracer.Start(r.Context(), "JWTMiddleware")
+		defer span.End()
+		logger := internal.LoggerWithContext(traceCtx, m.logger)
 
-		// Get the token from the Authorization header
 		token := r.Header.Get("Authorization")
-		if token == "" || !strings.HasPrefix(token, "Bearer ") {
-			http.Error(w, "Missing or invalid Authorization header", http.StatusUnauthorized)
+		if token == "" {
+			logger.Warn("Authorization header required")
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		tokenString := strings.TrimPrefix(token, "Bearer ")
-
-		// Verify the token
-		err := m.verifier.Verify(tokenString)
+		user, err := m.verifier.Parse(traceCtx, token)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			logger.Warn("Authorization header invalid", zap.Error(err))
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		// Call the next handler if the token is valid
+		logger.Debug("Authorization header valid")
+		r = r.WithContext(context.WithValue(traceCtx, "user", user))
 		next.ServeHTTP(w, r)
-	})
+	}
 }

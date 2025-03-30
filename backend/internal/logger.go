@@ -48,6 +48,10 @@ func LoggerWithContext(ctx context.Context, logger *zap.Logger) *zap.Logger {
 		logger = logger.With(zap.String("trace_id", spanCtx.TraceID().String()))
 	}
 
+	if spanCtx.HasSpanID() {
+		logger = logger.With(zap.String("span_id", spanCtx.SpanID().String()))
+	}
+
 	return logger
 }
 

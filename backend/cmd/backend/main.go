@@ -77,27 +77,26 @@ func main() {
 	}
 	defer dbPool.Close()
 
-	shutdown, err := initOpenTelemetry(AppName, Version, BuildTime, CommitHash, cfg)
+	shutdown, err := initOpenTelemetry(AppName, Version, BuildTime, CommitHash, cfg.OtelCollectorUrl)
 	if err != nil {
 		logger.Fatal("Failed to initialize OpenTelemetry", zap.Error(err))
 	}
 
 	// initialize service
-	_ = jwt.NewService(logger, cfg.Secret, 24*time.Hour)
+	jwtService := jwt.NewService(logger, cfg.Secret, 24*time.Hour)
 	userService := user.NewService(logger, dbPool)
+
+	// initialize middleware
+	jwtMiddleware := jwt.NewMiddleware(jwtService, logger)
 
 	// initialize handler
 	userHandler := user.NewHandler(logger, userService)
 
-	// initialize auth service
-	//authService := auth.NewService(logger, dbpool, jwtService)
-	//authHandler := auth.NewHandler(authService)
-	//
 	// initialize mux
 	mux := http.NewServeMux()
 
 	// set up routes
-	mux.HandleFunc("POST /api/user", internal.TraceMiddleware(internal.RecoverMiddleware(userHandler.CreateHandler, logger), logger))
+	mux.HandleFunc("POST /api/user", internal.TraceMiddleware(internal.RecoverMiddleware(jwtMiddleware.Middleware(userHandler.CreateHandler), logger), logger))
 
 	//mux.HandleFunc("POST /login", authHandler.LoginHandler)
 	//mux.HandleFunc("POST /register", authHandler.RegisterHandler)
@@ -170,8 +169,8 @@ func initDatabasePool(cfg *config.Config) (*pgxpool.Pool, error) {
 }
 
 // initOpenTelemetry initializes OpenTelemetry with the given app name, version, build time and commit hash. If the
-// collector URL is set in the config, it will create a gRPC connection to the collector and set up a trace exporter.
-func initOpenTelemetry(appName, version, buildTime, commitHash string, cfg config.Config) (func(context.Context) error, error) {
+// collector URL is not empty, it will create a gRPC connection to the collector and set up the trace exporter.
+func initOpenTelemetry(appName, version, buildTime, commitHash, collectorUrl string) (func(context.Context) error, error) {
 	ctx := context.Background()
 
 	serviceName := semconv.ServiceNameKey.String(appName)
@@ -196,8 +195,8 @@ func initOpenTelemetry(appName, version, buildTime, commitHash string, cfg confi
 		trace.WithSampler(trace.AlwaysSample()),
 	}
 
-	if cfg.OtelCollectorUrl != "" {
-		conn, err := initGrpcConn(cfg.OtelCollectorUrl)
+	if collectorUrl != "" {
+		conn, err := initGrpcConn(collectorUrl)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)
 		}
@@ -207,6 +206,7 @@ func initOpenTelemetry(appName, version, buildTime, commitHash string, cfg confi
 			return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 		}
 
+		// Use batch span processor to optimize span export by batching multiple spans together
 		bsp := sdktrace.NewBatchSpanProcessor(traceExporter)
 		options = append(options, sdktrace.WithSpanProcessor(bsp))
 	}

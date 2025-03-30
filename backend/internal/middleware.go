@@ -29,6 +29,7 @@ func TraceMiddleware(next http.HandlerFunc, logger *zap.Logger) http.HandlerFunc
 		)
 		span.AddEvent("HTTPRequestStarted")
 
+		logger = LoggerWithContext(ctx, logger)
 		if upstream.HasTraceID() {
 			logger.Debug("Upstream trace available", zap.String("trace_id", upstream.TraceID().String()))
 		} else {
@@ -45,6 +46,8 @@ func RecoverMiddleware(next http.HandlerFunc, logger *zap.Logger) http.HandlerFu
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		traceCtx, span := tracer.Start(r.Context(), "RecoverMiddleware")
+		logger = LoggerWithContext(traceCtx, logger)
+
 		defer func() {
 			if err := recover(); err != nil {
 				span.AddEvent("PanicRecovered", trace.WithAttributes(attribute.String("panic", fmt.Sprintf("%v", err))))
