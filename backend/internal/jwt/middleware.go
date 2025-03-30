@@ -31,7 +31,7 @@ func NewMiddleware(verifier Verifier, logger *zap.Logger) Middleware {
 	}
 }
 
-func (m Middleware) Middleware(next http.HandlerFunc) http.HandlerFunc {
+func (m Middleware) HandlerFunc(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		traceCtx, span := m.tracer.Start(r.Context(), "JWTMiddleware")
 		defer span.End()

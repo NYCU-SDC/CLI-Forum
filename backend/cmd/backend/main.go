@@ -118,7 +118,7 @@ func main() {
 	logger.Info("Starting listening request", zap.String("host", cfg.Host), zap.String("port", cfg.Port))
 	err = http.ListenAndServe(cfg.Host+":"+cfg.Port, mux)
 	if err != nil {
-		logger.Fatal("Fail to start server with error : ", zap.Error(err))
+		logger.Fatal("Fail to start server with error", zap.Error(err))
 	}
 
 	// graceful shutdown
@@ -134,7 +134,7 @@ func basicMiddleware(next http.HandlerFunc, logger *zap.Logger) http.HandlerFunc
 }
 
 func requireUserRoleMiddleware(next http.HandlerFunc, jwtMiddleware jwt.Middleware, logger *zap.Logger) http.HandlerFunc {
-	return internal.TraceMiddleware(internal.RecoverMiddleware(jwtMiddleware.Middleware(auth.Middleware(next, logger, "USER")), logger), logger)
+	return internal.TraceMiddleware(internal.RecoverMiddleware(jwtMiddleware.HandlerFunc(auth.Middleware(next, logger, "USER")), logger), logger)
 }
 
 // initLogger create a new logger. If debug is enabled, it will create a development logger without metadata for better

@@ -52,6 +52,18 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (User, error) {
 	return user, nil
 }
 
+func (s *Service) GetByName(ctx context.Context, name string) (User, error) {
+	logger := internal.LoggerWithContext(ctx, s.logger)
+
+	user, err := s.query.GetByName(ctx, name)
+	if database.WrapDBErrorWithKeyValue(err, "users", "name", name) != nil {
+		logger.Error("Failed to get user by name", zap.Error(err))
+		return User{}, err
+	}
+
+	return user, nil
+}
+
 func (s *Service) UpdateName(ctx context.Context, id uuid.UUID, name string) (User, error) {
 	logger := internal.LoggerWithContext(ctx, s.logger)
 

@@ -50,6 +50,17 @@ func (q *Queries) GetByID(ctx context.Context, id uuid.UUID) (User, error) {
 	return i, err
 }
 
+const getByName = `-- name: GetByName :one
+SELECT id, name, password FROM users WHERE name = $1
+`
+
+func (q *Queries) GetByName(ctx context.Context, name string) (User, error) {
+	row := q.db.QueryRow(ctx, getByName, name)
+	var i User
+	err := row.Scan(&i.ID, &i.Name, &i.Password)
+	return i, err
+}
+
 const updateName = `-- name: UpdateName :one
 UPDATE users SET name = $2, password = $3 WHERE id = $1 RETURNING id, name, password
 `
