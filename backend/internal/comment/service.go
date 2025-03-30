@@ -2,9 +2,13 @@ package comment
 
 import (
 	"context"
+	"errors"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"go.uber.org/zap"
 )
+
+var ErrEntryNotFound = errors.New("entry not found")
 
 type Service struct {
 	logger         *zap.Logger
@@ -32,6 +36,12 @@ func (s *Service) GetById(ctx context.Context, id pgtype.UUID) (Comment, error) 
 	comment, err := s.commentQuerier.FindByID(ctx, id)
 
 	if err != nil {
+		// Required entry not found
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Error("Comment not found", zap.Error(err), zap.String("id", id.String()))
+			return Comment{}, ErrEntryNotFound
+		}
+		// Other errors
 		s.logger.Error("Error fetching comment by ID", zap.Error(err), zap.String("id", id.String()))
 		return Comment{}, err
 	}
@@ -51,6 +61,12 @@ func (s *Service) Create(ctx context.Context, arg CreateParams) (Comment, error)
 func (s *Service) Update(ctx context.Context, arg UpdateParams) (Comment, error) {
 	comment, err := s.commentQuerier.Update(ctx, arg)
 	if err != nil {
+		// Required entry not found
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Error("Comment not found", zap.Error(err), zap.String("id", arg.ID.String()))
+			return Comment{}, ErrEntryNotFound
+		}
+		// Other errors
 		s.logger.Error("Error updating comment", zap.Error(err), zap.String("id", arg.ID.String()))
 		return Comment{}, err
 	}
@@ -60,6 +76,12 @@ func (s *Service) Update(ctx context.Context, arg UpdateParams) (Comment, error)
 func (s *Service) Delete(ctx context.Context, id pgtype.UUID) error {
 	err := s.commentQuerier.Delete(ctx, id)
 	if err != nil {
+		// Required entry not found
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Error("Comment not found", zap.Error(err), zap.String("id", id.String()))
+			return ErrEntryNotFound
+		}
+		// Other errors
 		s.logger.Error("Error deleting comment", zap.Error(err), zap.String("id", id.String()))
 		return err
 	}
