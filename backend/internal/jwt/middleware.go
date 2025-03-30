@@ -8,7 +8,7 @@ import (
 )
 
 type Verifier interface {
-	Verify(tokenString string) error
+	Verify(token string) error
 }
 
 type MiddlewareService struct {
@@ -16,10 +16,10 @@ type MiddlewareService struct {
 	verifier Verifier
 }
 
-func NewMiddleware(service Service) MiddlewareService {
+func NewMiddleware(verifier Verifier, logger *zap.Logger) MiddlewareService {
 	return MiddlewareService{
-		logger: service.logger,
-		//verifier: service,
+		logger:   logger,
+		verifier: verifier,
 	}
 }
 

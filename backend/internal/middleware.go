@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
@@ -9,7 +10,7 @@ import (
 	"net/http"
 )
 
-func TraceMiddleware(next func(w http.ResponseWriter, r *http.Request), logger *zap.Logger) func(w http.ResponseWriter, r *http.Request) {
+func TraceMiddleware(next http.HandlerFunc, logger *zap.Logger) http.HandlerFunc {
 	name := "middleware/trace"
 	tracer := otel.Tracer(name)
 	propagator := otel.GetTextMapPropagator()
@@ -35,5 +36,25 @@ func TraceMiddleware(next func(w http.ResponseWriter, r *http.Request), logger *
 		}
 
 		next(w, r.WithContext(ctx))
+	}
+}
+
+func RecoverMiddleware(next http.HandlerFunc, logger *zap.Logger) http.HandlerFunc {
+	name := "middleware/trace"
+	tracer := otel.Tracer(name)
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		traceCtx, span := tracer.Start(r.Context(), "RecoverMiddleware")
+		defer func() {
+			if err := recover(); err != nil {
+				span.AddEvent("PanicRecovered", trace.WithAttributes(attribute.String("panic", fmt.Sprintf("%v", err))))
+				logger.Error("Recovered from panic", zap.Any("error", err))
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+
+			span.End()
+		}()
+
+		next(w, r.WithContext(traceCtx))
 	}
 }

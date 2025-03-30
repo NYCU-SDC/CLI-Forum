@@ -32,5 +32,7 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	logger := internal.LoggerWithContext(r.Context(), h.Logger)
 	logger.Debug("CreateHandler called")
 
+	panic("test panic")
+
 	w.Write([]byte("CreateHandler"))
 }
