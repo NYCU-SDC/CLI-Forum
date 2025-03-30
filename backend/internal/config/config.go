@@ -13,22 +13,24 @@ import (
 const DefaultSecret = "default-secret"
 
 type Config struct {
-	Debug           bool   `yaml:"debug"            envconfig:"DEBUG"`
-	Host            string `yaml:"host"             envconfig:"HOST"`
-	Port            string `yaml:"port"             envconfig:"PORT"`
-	Secret          string `yaml:"secret"           envconfig:"SECRET"`
-	DatabaseURL     string `yaml:"database_url"     envconfig:"DATABASE_URL"`
-	MigrationSource string `yaml:"migration_source" envconfig:"MIGRATION_SOURCE"`
+	Debug            bool   `yaml:"debug"              envconfig:"DEBUG"`
+	Host             string `yaml:"host"               envconfig:"HOST"`
+	Port             string `yaml:"port"               envconfig:"PORT"`
+	Secret           string `yaml:"secret"             envconfig:"SECRET"`
+	DatabaseURL      string `yaml:"database_url"       envconfig:"DATABASE_URL"`
+	MigrationSource  string `yaml:"migration_source"   envconfig:"MIGRATION_SOURCE"`
+	OtelCollectorUrl string `yaml:"otel_collector_url" envconfig:"OTEL_COLLECTOR_URL"`
 }
 
 func Load() Config {
 	config := &Config{
-		Debug:           false,
-		Host:            "localhost",
-		Port:            "8080",
-		Secret:          DefaultSecret,
-		DatabaseURL:     "",
-		MigrationSource: "file://internal/database/migrations",
+		Debug:            false,
+		Host:             "localhost",
+		Port:             "8080",
+		Secret:           DefaultSecret,
+		DatabaseURL:      "",
+		MigrationSource:  "file://internal/database/migrations",
+		OtelCollectorUrl: "",
 	}
 
 	var err error
@@ -72,12 +74,13 @@ func FromEnv(config *Config) (*Config, error) {
 	}
 
 	envConfig := &Config{
-		Debug:           os.Getenv("DEBUG") == "true",
-		Host:            os.Getenv("HOST"),
-		Port:            os.Getenv("PORT"),
-		Secret:          os.Getenv("SECRET"),
-		DatabaseURL:     os.Getenv("DATABASE_URL"),
-		MigrationSource: os.Getenv("MIGRATION_SOURCE"),
+		Debug:            os.Getenv("DEBUG") == "true",
+		Host:             os.Getenv("HOST"),
+		Port:             os.Getenv("PORT"),
+		Secret:           os.Getenv("SECRET"),
+		DatabaseURL:      os.Getenv("DATABASE_URL"),
+		MigrationSource:  os.Getenv("MIGRATION_SOURCE"),
+		OtelCollectorUrl: os.Getenv("OTEL_COLLECTOR_URL"),
 	}
 
 	return merge(config, envConfig)
@@ -92,6 +95,7 @@ func FromFlags(config *Config) (*Config, error) {
 	flag.StringVar(&flagConfig.Secret, "secret", "", "secret")
 	flag.StringVar(&flagConfig.DatabaseURL, "database_url", "", "database url")
 	flag.StringVar(&flagConfig.MigrationSource, "migration_source", "", "migration source")
+	flag.StringVar(&flagConfig.OtelCollectorUrl, "otel_collector_url", "", "OpenTelemetry collector URL")
 
 	flag.Parse()
 

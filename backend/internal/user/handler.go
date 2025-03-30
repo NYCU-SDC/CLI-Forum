@@ -1,6 +1,7 @@
 package user
 
 import (
+	"backend/internal"
 	"context"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -28,5 +29,8 @@ func NewHandler(logger *zap.Logger, store Store) *Handler {
 }
 
 func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
+	logger := internal.LoggerWithContext(r.Context(), h.Logger)
+	logger.Debug("CreateHandler called")
 
+	w.Write([]byte("CreateHandler"))
 }

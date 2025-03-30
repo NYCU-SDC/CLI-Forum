@@ -7,9 +7,19 @@ import (
 	"backend/internal/jwt"
 	"backend/internal/user"
 	"context"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/sdk/trace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"log"
 	"net/http"
 	"time"
@@ -25,7 +35,7 @@ var CommitHash = "no-commit-hash"
 
 func main() {
 	if AppName == "no-app-name" {
-		AppName = "cli-forum-dev-" + uuid.New().String()
+		AppName = "cli-forum-dev-" + uuid.New().String()[:8]
 	}
 
 	if BuildTime == "no-build-time" {
@@ -67,6 +77,11 @@ func main() {
 	}
 	defer dbPool.Close()
 
+	shotdown, err := initOpenTelemetry(AppName, Version, BuildTime, CommitHash, cfg)
+	if err != nil {
+		logger.Fatal("Failed to initialize OpenTelemetry", zap.Error(err))
+	}
+
 	// initialize service
 	_ = jwt.NewService(logger, cfg.Secret, 24*time.Hour)
 	userService := user.NewService(logger, dbPool)
@@ -82,17 +97,23 @@ func main() {
 	mux := http.NewServeMux()
 
 	// set up routes
-	mux.HandleFunc("POST /api/user", userHandler.CreateHandler)
+	mux.HandleFunc("POST /api/user", internal.TraceMiddleware(userHandler.CreateHandler, logger))
 
 	//mux.HandleFunc("POST /login", authHandler.LoginHandler)
 	//mux.HandleFunc("POST /register", authHandler.RegisterHandler)
 	//
-	//// start server on port 8090
-	//logger.Info("Server starting on localhost:8090")
-	//err = http.ListenAndServe("localhost:8090", mux)
-	//if err != nil {
-	//	logger.Fatal("Fail to start server with error : ", zap.Error(err))
-	//}
+	logger.Info("Starting listening request", zap.String("host", cfg.Host), zap.String("port", cfg.Port))
+	err = http.ListenAndServe(cfg.Host+":"+cfg.Port, mux)
+	if err != nil {
+		logger.Fatal("Fail to start server with error : ", zap.Error(err))
+	}
+
+	// graceful shutdown
+	defer func() {
+		if err := shotdown(context.Background()); err != nil {
+			logger.Error("Failed to shutdown OpenTelemetry", zap.Error(err))
+		}
+	}()
 }
 
 // initLogger create a new logger. If debug is enabled, it will create a development logger without metadata for better
@@ -101,7 +122,7 @@ func initLogger(cfg *config.Config, appMetadata []zap.Field) (*zap.Logger, error
 	var err error
 	var logger *zap.Logger
 	if cfg.Debug {
-		logger, err = zap.NewDevelopment()
+		logger, err = internal.ZapDevelopmentConfig().Build()
 		if err != nil {
 			return nil, err
 		}
@@ -146,4 +167,67 @@ func initDatabasePool(cfg *config.Config) (*pgxpool.Pool, error) {
 	}
 
 	return pool, nil
+}
+
+// initOpenTelemetry initializes OpenTelemetry with the given app name, version, build time and commit hash. If the
+// collector URL is set in the config, it will create a gRPC connection to the collector and set up a trace exporter.
+func initOpenTelemetry(appName, version, buildTime, commitHash string, cfg config.Config) (func(context.Context) error, error) {
+	ctx := context.Background()
+
+	serviceName := semconv.ServiceNameKey.String(appName)
+	serviceVersion := semconv.ServiceVersionKey.String(version)
+	serviceBuildTime := semconv.DeploymentEnvironmentKey.String(buildTime)
+	serviceCommitHash := semconv.DeploymentEnvironmentKey.String(commitHash)
+
+	res, err := resource.New(ctx,
+		resource.WithAttributes(
+			serviceName,
+			serviceVersion,
+			serviceBuildTime,
+			serviceCommitHash,
+		),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resource: %w", err)
+	}
+
+	options := []trace.TracerProviderOption{
+		sdktrace.WithResource(res),
+		trace.WithSampler(trace.AlwaysSample()),
+	}
+
+	if cfg.OtelCollectorUrl != "" {
+		conn, err := initGrpcConn(cfg.OtelCollectorUrl)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)
+		}
+
+		traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create trace exporter: %w", err)
+		}
+
+		bsp := sdktrace.NewBatchSpanProcessor(traceExporter)
+		options = append(options, sdktrace.WithSpanProcessor(bsp))
+	}
+
+	tracerProvider := trace.NewTracerProvider(options...)
+
+	otel.SetTracerProvider(tracerProvider)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+
+	return tracerProvider.Shutdown, nil
+}
+
+// initGrpcConn simply creates a gRPC connection to the given target using insecure credentials.
+func initGrpcConn(target string) (*grpc.ClientConn, error) {
+	conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)
+	}
+
+	return conn, err
 }
