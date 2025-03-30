@@ -12,7 +12,7 @@ type Comment struct {
 	ID        pgtype.UUID        `json:"id"`
 	PostID    pgtype.UUID        `json:"post_id"`
 	AuthorID  pgtype.UUID        `json:"author_id"`
-	Title     interface{}        `json:"title"`
+	Title     pgtype.Text        `json:"title"`
 	Content   pgtype.Text        `json:"content"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
