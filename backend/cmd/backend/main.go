@@ -35,7 +35,7 @@ var CommitHash = "no-commit-hash"
 
 func main() {
 	if AppName == "no-app-name" {
-		AppName = "cli-forum-dev-" + uuid.New().String()[:8]
+		AppName = "cli-forum-dev"
 	}
 
 	if BuildTime == "no-build-time" {
@@ -77,7 +77,7 @@ func main() {
 	}
 	defer dbPool.Close()
 
-	shotdown, err := initOpenTelemetry(AppName, Version, BuildTime, CommitHash, cfg)
+	shutdown, err := initOpenTelemetry(AppName, Version, BuildTime, CommitHash, cfg)
 	if err != nil {
 		logger.Fatal("Failed to initialize OpenTelemetry", zap.Error(err))
 	}
@@ -97,7 +97,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	// set up routes
-	mux.HandleFunc("POST /api/user", internal.TraceMiddleware(userHandler.CreateHandler, logger))
+	mux.HandleFunc("POST /api/user", internal.TraceMiddleware(internal.RecoverMiddleware(userHandler.CreateHandler, logger), logger))
 
 	//mux.HandleFunc("POST /login", authHandler.LoginHandler)
 	//mux.HandleFunc("POST /register", authHandler.RegisterHandler)
@@ -110,7 +110,7 @@ func main() {
 
 	// graceful shutdown
 	defer func() {
-		if err := shotdown(context.Background()); err != nil {
+		if err := shutdown(context.Background()); err != nil {
 			logger.Error("Failed to shutdown OpenTelemetry", zap.Error(err))
 		}
 	}()
