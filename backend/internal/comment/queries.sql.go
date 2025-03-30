@@ -18,7 +18,7 @@ INSERT INTO comments (post_id, author_id, title, content) VALUES ($1, $2, $3, $4
 type CreateParams struct {
 	PostID   pgtype.UUID `json:"post_id"`
 	AuthorID pgtype.UUID `json:"author_id"`
-	Title    interface{} `json:"title"`
+	Title    pgtype.Text `json:"title"`
 	Content  pgtype.Text `json:"content"`
 }
 
@@ -105,7 +105,7 @@ UPDATE comments SET title = $2, content = $3 WHERE id = $1 RETURNING id, post_id
 
 type UpdateParams struct {
 	ID      pgtype.UUID `json:"id"`
-	Title   interface{} `json:"title"`
+	Title   pgtype.Text `json:"title"`
 	Content pgtype.Text `json:"content"`
 }
 
