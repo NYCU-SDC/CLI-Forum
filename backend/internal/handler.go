@@ -10,6 +10,10 @@ import (
 	"net/http"
 )
 
+type ContextKey string
+
+const UserContextKey ContextKey = "user"
+
 func ParseAndValidateRequestBody(ctx context.Context, v *validator.Validate, r *http.Request, s interface{}) error {
 	_, span := otel.Tracer("internal/handler").Start(ctx, "ParseAndValidateRequestBody")
 	defer span.End()
