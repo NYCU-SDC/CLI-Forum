@@ -3,24 +3,23 @@ package comment
 import (
 	"context"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
 type Service struct {
 	logger         *zap.Logger
-	commentQueries *Queries
+	commentQuerier Querier
 }
 
-func NewService(logger *zap.Logger, db *pgxpool.Pool) *Service {
+func NewService(logger *zap.Logger, queries Querier) *Service {
 	return &Service{
 		logger:         logger,
-		commentQueries: New(db),
+		commentQuerier: queries,
 	}
 }
 
 func (s *Service) GetAll(ctx context.Context) ([]Comment, error) {
-	comments, err := s.commentQueries.FindAll(ctx)
+	comments, err := s.commentQuerier.FindAll(ctx)
 
 	if err != nil {
 		s.logger.Error("Error fetching all comments", zap.Error(err))
@@ -30,7 +29,7 @@ func (s *Service) GetAll(ctx context.Context) ([]Comment, error) {
 }
 
 func (s *Service) GetById(ctx context.Context, id pgtype.UUID) (Comment, error) {
-	comment, err := s.commentQueries.FindByID(ctx, id)
+	comment, err := s.commentQuerier.FindByID(ctx, id)
 
 	if err != nil {
 		s.logger.Error("Error fetching comment by ID", zap.Error(err), zap.String("id", id.String()))
@@ -40,7 +39,7 @@ func (s *Service) GetById(ctx context.Context, id pgtype.UUID) (Comment, error) 
 }
 
 func (s *Service) Create(ctx context.Context, arg CreateParams) (Comment, error) {
-	comment, err := s.commentQueries.Create(ctx, arg)
+	comment, err := s.commentQuerier.Create(ctx, arg)
 
 	if err != nil {
 		s.logger.Error("Error creating comment", zap.Error(err), zap.String("post_id", arg.PostID.String()), zap.String("author_id", arg.AuthorID.String()))
@@ -50,7 +49,7 @@ func (s *Service) Create(ctx context.Context, arg CreateParams) (Comment, error)
 }
 
 func (s *Service) Update(ctx context.Context, arg UpdateParams) (Comment, error) {
-	comment, err := s.commentQueries.Update(ctx, arg)
+	comment, err := s.commentQuerier.Update(ctx, arg)
 	if err != nil {
 		s.logger.Error("Error updating comment", zap.Error(err), zap.String("id", arg.ID.String()))
 		return Comment{}, err
@@ -59,7 +58,7 @@ func (s *Service) Update(ctx context.Context, arg UpdateParams) (Comment, error)
 }
 
 func (s *Service) Delete(ctx context.Context, id pgtype.UUID) error {
-	err := s.commentQueries.Delete(ctx, id)
+	err := s.commentQuerier.Delete(ctx, id)
 	if err != nil {
 		s.logger.Error("Error deleting comment", zap.Error(err), zap.String("id", id.String()))
 		return err
