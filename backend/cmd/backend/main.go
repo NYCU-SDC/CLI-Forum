@@ -85,7 +85,7 @@ func main() {
 		logger.Fatal("Failed to migrate database", zap.Error(err))
 	}
 
-	dbPool, err := initDatabasePool(&cfg)
+	dbPool, err := initDatabasePool(cfg.DatabaseURL)
 	if err != nil {
 		logger.Fatal("Failed to initialize database pool", zap.Error(err))
 	}
@@ -182,8 +182,8 @@ func initLogger(cfg *config.Config, appMetadata []zap.Field) (*zap.Logger, error
 //   - pool_max_conn_idle_time: 30 minutes
 //   - pool_health_check_period: 1 minute
 //   - pool_max_conn_lifetime_jitter: 0
-func initDatabasePool(cfg *config.Config) (*pgxpool.Pool, error) {
-	poolConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+func initDatabasePool(databaseURL string) (*pgxpool.Pool, error) {
+	poolConfig, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		log.Fatalf("Unable to parse config: %v", err)
 	}
