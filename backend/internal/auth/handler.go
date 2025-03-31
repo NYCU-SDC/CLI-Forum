@@ -121,6 +121,6 @@ func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("User registered", zap.String("username", request.Username), zap.String("user_id", userEntity.ID.String()))
+	logger.Info("User registered", zap.String("username", request.Username), zap.String("user_id", userEntity.ID.String()))
 	w.WriteHeader(http.StatusCreated)
 }

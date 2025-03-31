@@ -12,7 +12,7 @@ import (
 )
 
 func TraceMiddleware(next http.HandlerFunc, logger *zap.Logger) http.HandlerFunc {
-	name := "middleware/trace"
+	name := "internal/middleware"
 	tracer := otel.Tracer(name)
 	propagator := otel.GetTextMapPropagator()
 
@@ -42,7 +42,7 @@ func TraceMiddleware(next http.HandlerFunc, logger *zap.Logger) http.HandlerFunc
 }
 
 func RecoverMiddleware(next http.HandlerFunc, logger *zap.Logger, debug bool) http.HandlerFunc {
-	name := "middleware/trace"
+	name := "internal/middleware"
 	tracer := otel.Tracer(name)
 
 	return func(w http.ResponseWriter, r *http.Request) {

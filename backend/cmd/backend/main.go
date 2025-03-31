@@ -61,8 +61,7 @@ func main() {
 			title := "Database URL is required"
 			message := "Please set the DATABASE_URL environment variable or provide a config file with the database_url key."
 			message = EarlyApplicationFailed(title, message)
-			fmt.Println(message)
-			os.Exit(1)
+			log.Fatal(message)
 		} else {
 			log.Fatalf("Failed to validate config: %v, exiting...", err)
 		}
@@ -272,6 +271,7 @@ Application Failed to Start
 
 # How to fix it?
 %s
+
 `
 
 	result = fmt.Sprintf(result, title, action)
