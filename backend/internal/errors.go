@@ -10,6 +10,7 @@ var (
 	ErrForbidden         = errors.New("forbidden")
 	ErrCredentialInvalid = errors.New("invalid username or password")
 	ErrUserAlreadyExists = errors.New("user already exists")
+	ErrUnauthorized      = errors.New("unauthorized")
 )
 
 type NotFoundError struct {

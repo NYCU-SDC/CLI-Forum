@@ -3,6 +3,7 @@ package auth
 import (
 	"backend/internal"
 	"backend/internal/jwt"
+	"backend/internal/problem"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -22,17 +23,29 @@ func Middleware(next http.HandlerFunc, logger *zap.Logger, requiredRoles ...stri
 		if r.Context().Value("user") == nil {
 			logger.Debug("User not found in context")
 			span.AddEvent("UserNotFoundInContext")
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+
+			problem.WriteError(traceCtx, w, internal.ErrUnauthorized, logger)
 			return
 		}
 
-		u := r.Context().Value("user").(jwt.User)
+		u := r.Context().Value(internal.UserContextKey).(jwt.User)
+
+		hasRole := false
 		for _, role := range requiredRoles {
 			if u.HasRole(role) {
 				logger.Debug("User passes role check", zap.String("role", role))
 				span.AddEvent("UserPassesRoleCheck", trace.WithAttributes(attribute.String("role", role)))
+
+				hasRole = true
 				break
 			}
+		}
+
+		if !hasRole {
+			logger.Debug("User does not have required role")
+			span.AddEvent("UserDoesNotHaveRequiredRole")
+			problem.WriteError(traceCtx, w, internal.ErrForbidden, logger)
+			return
 		}
 
 		next(w, r)

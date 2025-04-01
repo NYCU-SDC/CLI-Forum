@@ -47,6 +47,8 @@ func WriteError(ctx context.Context, w http.ResponseWriter, err error, logger *z
 		problem = NewUnauthorizedProblem("Invalid username or password")
 	case errors.Is(err, internal.ErrForbidden):
 		problem = NewForbiddenProblem("Make sure you have the right permissions")
+	case errors.Is(err, internal.ErrUnauthorized):
+		problem = NewUnauthorizedProblem("You must be logged in to access this resource")
 	case errors.As(err, &internalDbError):
 		problem = NewInternalServerProblem("Internal server error")
 	default:
