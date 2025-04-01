@@ -20,7 +20,7 @@ func Middleware(next http.HandlerFunc, logger *zap.Logger, requiredRoles ...stri
 		defer span.End()
 		logger = internal.LoggerWithContext(traceCtx, logger)
 
-		if r.Context().Value("user") == nil {
+		if r.Context().Value(internal.UserContextKey) == nil {
 			logger.Debug("User not found in context")
 			span.AddEvent("UserNotFoundInContext")
 

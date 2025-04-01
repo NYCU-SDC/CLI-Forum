@@ -37,6 +37,6 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	logger := internal.LoggerWithContext(r.Context(), h.Logger)
 	logger.Debug("CreateHandler called")
 
-	user := r.Context().Value("user").(jwt.User)
+	user := r.Context().Value(internal.UserContextKey).(jwt.User)
 	fmt.Printf("Is you %s !", user.Username)
 }
