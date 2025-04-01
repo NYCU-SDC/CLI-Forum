@@ -1,8 +1,8 @@
 package problem
 
 import (
-	"backend/internal"
 	"backend/internal/database"
+	errorPkg "backend/internal/error"
 	"context"
 	"encoding/json"
 	"errors"
@@ -33,7 +33,7 @@ func WriteError(ctx context.Context, w http.ResponseWriter, err error, logger *z
 	}
 
 	var problem Problem
-	var notFoundError internal.NotFoundError
+	var notFoundError errorPkg.NotFoundError
 	var validationErrors validator.ValidationErrors
 	var internalDbError database.InternalServerError
 	switch {
@@ -41,13 +41,13 @@ func WriteError(ctx context.Context, w http.ResponseWriter, err error, logger *z
 		problem = NewNotFoundProblem(err.Error())
 	case errors.As(err, &validationErrors):
 		problem = NewValidateProblem(validationErrors.Error())
-	case errors.Is(err, internal.ErrUserAlreadyExists):
+	case errors.Is(err, errorPkg.ErrUserAlreadyExists):
 		problem = NewValidateProblem("User already exists")
-	case errors.Is(err, internal.ErrCredentialInvalid):
+	case errors.Is(err, errorPkg.ErrCredentialInvalid):
 		problem = NewUnauthorizedProblem("Invalid username or password")
-	case errors.Is(err, internal.ErrForbidden):
+	case errors.Is(err, errorPkg.ErrForbidden):
 		problem = NewForbiddenProblem("Make sure you have the right permissions")
-	case errors.Is(err, internal.ErrUnauthorized):
+	case errors.Is(err, errorPkg.ErrUnauthorized):
 		problem = NewUnauthorizedProblem("You must be logged in to access this resource")
 	case errors.As(err, &internalDbError):
 		problem = NewInternalServerProblem("Internal server error")

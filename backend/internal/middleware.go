@@ -1,6 +1,9 @@
 package internal
 
 import (
+	errorPkg "backend/internal/error"
+	"backend/internal/problem"
+	"context"
 	"fmt"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -60,7 +63,7 @@ func RecoverMiddleware(next http.HandlerFunc, logger *zap.Logger, debug bool) ht
 					}
 				}
 
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				problem.WriteError(context.Background(), w, errorPkg.ErrInternalServer, logger)
 			}
 
 			span.End()

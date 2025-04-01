@@ -2,6 +2,7 @@ package auth
 
 import (
 	"backend/internal"
+	errorPkg "backend/internal/error"
 	"backend/internal/problem"
 	"backend/internal/user"
 	"context"
@@ -73,13 +74,13 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		logger.Warn("Failed to get user by name", zap.String("username", request.Username), zap.Error(err))
 
 		// Prevent leaking information about whether the user exists
-		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", internal.ErrCredentialInvalid, err), logger)
+		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", errorPkg.ErrCredentialInvalid, err), logger)
 		return
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(userEntity.Password), []byte(request.Password))
 	if err != nil {
-		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", internal.ErrCredentialInvalid, err), logger)
+		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", errorPkg.ErrCredentialInvalid, err), logger)
 		return
 	}
 

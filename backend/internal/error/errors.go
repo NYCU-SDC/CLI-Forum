@@ -1,4 +1,4 @@
-package internal
+package error
 
 import (
 	"errors"
@@ -11,6 +11,7 @@ var (
 	ErrCredentialInvalid = errors.New("invalid username or password")
 	ErrUserAlreadyExists = errors.New("user already exists")
 	ErrUnauthorized      = errors.New("unauthorized")
+	ErrInternalServer    = errors.New("internal server error")
 )
 
 type NotFoundError struct {

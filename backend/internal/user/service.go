@@ -3,6 +3,7 @@ package user
 import (
 	"backend/internal"
 	"backend/internal/database"
+	errorPkg "backend/internal/error"
 	"context"
 	"errors"
 	"github.com/google/uuid"
@@ -45,7 +46,7 @@ func (s *Service) Create(ctx context.Context, name, password string) (User, erro
 
 		if errors.Is(err, database.ErrUniqueViolation) {
 			logger.Debug("User already exists", zap.String("name", name))
-			return User{}, internal.ErrUserAlreadyExists
+			return User{}, errorPkg.ErrUserAlreadyExists
 		}
 
 		logger.Error("Failed to create user", zap.Error(err))

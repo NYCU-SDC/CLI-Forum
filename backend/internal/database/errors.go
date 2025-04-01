@@ -1,7 +1,7 @@
 package database
 
 import (
-	"backend/internal"
+	errorPkg "backend/internal/error"
 	"context"
 	"errors"
 	"fmt"
@@ -39,7 +39,7 @@ func WrapDBError(err error, logger *zap.Logger) error {
 	logger.Warn("Wrapping database error", zap.Error(err))
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("%w: %v", internal.ErrNotFound, err)
+		return fmt.Errorf("%w: %v", errorPkg.ErrNotFound, err)
 	}
 
 	if errors.Is(err, context.DeadlineExceeded) {
@@ -69,7 +69,7 @@ func WrapDBErrorWithKeyValue(err error, table, key, value string, logger *zap.Lo
 	logger.Warn("Wrapping database error with key value", zap.Error(err), zap.String("table", table), zap.String("key", key), zap.String("value", value))
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		return internal.NewNotFoundError(table, key, value, "")
+		return errorPkg.NewNotFoundError(table, key, value, "")
 	}
 
 	if errors.Is(err, context.DeadlineExceeded) {
