@@ -1,10 +1,12 @@
 package internal
 
 import (
+	errorPkg "backend/internal/error"
 	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"io"
 	"net/http"
@@ -51,4 +53,13 @@ func WriteJSONResponse(w http.ResponseWriter, status int, data interface{}) {
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func ParseUUID(value string) (uuid.UUID, error) {
+	var res uuid.UUID
+	err := res.Scan(value)
+	if err != nil {
+		return res, errorPkg.ErrInvalidUUID
+	}
+	return res, nil
 }

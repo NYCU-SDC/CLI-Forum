@@ -2,53 +2,42 @@ package post_test
 
 import (
 	"backend/internal/post"
-	"backend/internal/post/mocks"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"go.uber.org/zap"
-	"net/http"
-	"net/http/httptest"
 	"testing"
+	"time"
 )
 
-func TestHandler_GetPost(t *testing.T) {
-	type args struct {
-		id string
-	}
-
+func TestGenerateResponse(t *testing.T) {
 	tests := []struct {
-		name             string
-		args             args
-		wantResult       *post.Response
-		wantResponseCode int
+		name       string
+		post       post.Post
+		wantResult post.Response
 	}{
-
 		{
-			name:             "Should return post",
-			args:             args{},
-			wantResult:       &post.Response{},
-			wantResponseCode: http.StatusOK,
-		},
-		{
-			name: "Should return error when id is could not be parsed",
-			args: args{
-				id: "1",
+			name: "Should return post",
+			post: post.Post{
+				ID:       uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+				AuthorID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+				Title:    pgtype.Text{String: "Title"},
+				Content:  pgtype.Text{String: "Content"},
+				CreateAt: pgtype.Timestamptz{Time: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)},
 			},
-			wantResult:       nil,
-			wantResponseCode: http.StatusBadRequest,
+			wantResult: post.Response{
+				ID:       "00000000-0000-0000-0000-000000000001",
+				AuthorID: "00000000-0000-0000-0000-000000000001",
+				Title:    "Title",
+				Content:  "Content",
+				CreateAt: "2000-01-01T00:00:00Z",
+			},
 		},
 	}
-
-	m := new(mocks.Finder)
-	m.On("GetPost", mock.Anything, mock.Anything).Return(post.Post{}, nil)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := post.NewHandler(m, zap.NewExample())
-			w := httptest.NewRecorder()
-			r := httptest.NewRequest(http.MethodGet, "/post?id="+tt.args.id, nil)
-			h.GetPost(w, r)
-			assert.Equal(t, tt.wantResponseCode, w.Code)
+			got := post.GenerateResponse(tt.post)
+			assert.Equal(t, tt.wantResult, got)
 		})
 	}
 }

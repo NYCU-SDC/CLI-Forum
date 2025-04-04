@@ -60,7 +60,7 @@ func (h Handler) GetAllHandler(w http.ResponseWriter, r *http.Request) {
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
 	// Get all posts from the service
-	posts, err := h.postStore.GetAll(r.Context())
+	posts, err := h.postStore.GetAll(traceCtx)
 	if err != nil {
 		problem.WriteError(traceCtx, w, err, logger)
 		return
@@ -69,13 +69,7 @@ func (h Handler) GetAllHandler(w http.ResponseWriter, r *http.Request) {
 	// Write the response
 	var response []Response
 	for _, post := range posts {
-		response = append(response, Response{
-			ID:       post.ID.String(),
-			AuthorID: post.AuthorID.String(),
-			Title:    post.Title.String,
-			Content:  post.Content.String,
-			CreateAt: post.CreateAt.Time.Format(time.RFC3339),
-		})
+		response = append(response, GenerateResponse(post))
 	}
 
 	internal.WriteJSONResponse(w, http.StatusOK, response)
@@ -98,21 +92,13 @@ func (h Handler) GetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the post from the service
-	post, err := h.postStore.GetByID(r.Context(), id)
+	post, err := h.postStore.GetByID(traceCtx, id)
 	if err != nil {
 		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 
-	// Write the response
-	response := Response{
-		ID:       post.ID.String(),
-		AuthorID: post.AuthorID.String(),
-		Title:    post.Title.String,
-		Content:  post.Content.String,
-		CreateAt: post.CreateAt.Time.Format(time.RFC3339),
-	}
-
+	response := GenerateResponse(post)
 	internal.WriteJSONResponse(w, http.StatusOK, response)
 }
 
@@ -130,17 +116,23 @@ func (h Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the user from the context
-	user := r.Context().Value(internal.UserContextKey).(jwt.User)
-	var authorID uuid.UUID
-	err = authorID.Scan(user.ID)
+	user, err := jwt.GetUserFromContext(traceCtx)
 	if err != nil {
-		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", errorPkg.ErrInvalidUUID, err), logger)
+		logger.DPanic("Can't find user in context, this should never happen")
+		problem.WriteError(traceCtx, w, err, logger)
+		return
+	}
+
+	// Parse the author ID from the user context
+	authorID, err := internal.ParseUUID(user.ID)
+	if err != nil {
+		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 	request.AuthorID = authorID
 
 	// Create the post
-	post, err := h.postStore.Create(r.Context(), request)
+	post, err := h.postStore.Create(traceCtx, request)
 	if err != nil {
 		problem.WriteError(traceCtx, w, err, logger)
 		return
@@ -148,14 +140,16 @@ func (h Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Created post", zap.String("id", post.ID.String()))
 
-	// Write the response
-	response := Response{
+	response := GenerateResponse(post)
+	internal.WriteJSONResponse(w, http.StatusOK, response)
+}
+
+func GenerateResponse(post Post) Response {
+	return Response{
 		ID:       post.ID.String(),
 		AuthorID: post.AuthorID.String(),
 		Title:    post.Title.String,
 		Content:  post.Content.String,
 		CreateAt: post.CreateAt.Time.Format(time.RFC3339),
 	}
-
-	internal.WriteJSONResponse(w, http.StatusOK, response)
 }
