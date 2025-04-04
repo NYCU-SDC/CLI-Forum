@@ -2,16 +2,15 @@ package comment
 
 import (
 	"backend/internal"
+	"backend/internal/database"
+	errorPkg "backend/internal/error"
 	"context"
 	"errors"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
-
-var ErrEntryNotFound = errors.New("entry not found")
 
 type Service struct {
 	logger         *zap.Logger
@@ -35,6 +34,9 @@ func (s *Service) GetAll(ctx context.Context) ([]Comment, error) {
 	comments, err := s.commentQuerier.FindAll(ctx)
 
 	if err != nil {
+		err = database.WrapDBError(err, logger)
+		span.RecordError(err)
+
 		logger.Error("Error fetching all comments", zap.Error(err))
 		return nil, err
 	}
@@ -49,10 +51,13 @@ func (s *Service) GetById(ctx context.Context, id pgtype.UUID) (Comment, error) 
 	comment, err := s.commentQuerier.FindByID(ctx, id)
 
 	if err != nil {
+		err = database.WrapDBError(err, logger)
+		span.RecordError(err)
+
 		// Required entry not found
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, errorPkg.ErrNotFound) {
 			logger.Error("Comment not found", zap.Error(err), zap.String("id", id.String()))
-			return Comment{}, ErrEntryNotFound
+			return Comment{}, err
 		}
 		// Other errors
 		logger.Error("Error fetching comment by ID", zap.Error(err), zap.String("id", id.String()))
@@ -69,6 +74,9 @@ func (s *Service) Create(ctx context.Context, arg CreateParams) (Comment, error)
 	comment, err := s.commentQuerier.Create(ctx, arg)
 
 	if err != nil {
+		err = database.WrapDBError(err, logger)
+		span.RecordError(err)
+
 		logger.Error("Error creating comment", zap.Error(err), zap.String("post_id", arg.PostID.String()), zap.String("author_id", arg.AuthorID.String()))
 		return Comment{}, err
 	}
@@ -82,10 +90,13 @@ func (s *Service) Update(ctx context.Context, arg UpdateParams) (Comment, error)
 
 	comment, err := s.commentQuerier.Update(ctx, arg)
 	if err != nil {
+		err = database.WrapDBError(err, logger)
+		span.RecordError(err)
+
 		// Required entry not found
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, errorPkg.ErrNotFound) {
 			logger.Error("Comment not found", zap.Error(err), zap.String("id", arg.ID.String()))
-			return Comment{}, ErrEntryNotFound
+			return Comment{}, err
 		}
 		// Other errors
 		logger.Error("Error updating comment", zap.Error(err), zap.String("id", arg.ID.String()))
@@ -102,10 +113,13 @@ func (s *Service) Delete(ctx context.Context, id pgtype.UUID) error {
 	err := s.commentQuerier.Delete(ctx, id)
 
 	if err != nil {
+		err = database.WrapDBError(err, logger)
+		span.RecordError(err)
+
 		// Required entry not found
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, errorPkg.ErrNotFound) {
 			logger.Error("Comment not found", zap.Error(err), zap.String("id", id.String()))
-			return ErrEntryNotFound
+			return err
 		}
 		// Other errors
 		logger.Error("Error deleting comment", zap.Error(err), zap.String("id", id.String()))
