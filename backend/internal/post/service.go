@@ -40,7 +40,7 @@ func (s Service) GetAll(ctx context.Context) ([]Post, error) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
-	posts, err := s.query.FindAll(ctx)
+	posts, err := s.query.FindAll(traceCtx)
 	if err != nil {
 		err = database.WrapDBError(err, logger)
 		span.RecordError(err)
@@ -56,7 +56,7 @@ func (s Service) GetByID(ctx context.Context, id uuid.UUID) (Post, error) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
-	post, err := s.query.FindByID(ctx, id)
+	post, err := s.query.FindByID(traceCtx, id)
 	if err != nil {
 		err = database.WrapDBErrorWithKeyValue(err, "users", "id", id.String(), logger)
 		span.RecordError(err)
@@ -71,10 +71,10 @@ func (s Service) Create(ctx context.Context, r CreateRequest) (Post, error) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
-	createdPost, err := s.query.Create(ctx, CreateParams{
+	createdPost, err := s.query.Create(traceCtx, CreateParams{
 		AuthorID: r.AuthorID,
-		Title:    pgtype.Text{String: r.Title},
-		Content:  pgtype.Text{String: r.Content},
+		Title:    pgtype.Text{String: r.Title, Valid: true},
+		Content:  pgtype.Text{String: r.Content, Valid: true},
 	})
 	if err != nil {
 		err = database.WrapDBError(err, logger)
