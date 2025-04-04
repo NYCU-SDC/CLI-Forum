@@ -1,6 +1,7 @@
 package comment
 
 import (
+	errorPkg "backend/internal/error"
 	"context"
 	"encoding/json"
 	"errors"
@@ -102,7 +103,7 @@ func (h *Handler) GetCommentByIdHandler(w http.ResponseWriter, r *http.Request) 
 	// Fetch comment by ID
 	comment, err := h.getter.GetById(r.Context(), uuid)
 	if err != nil {
-		if errors.Is(err, ErrEntryNotFound) {
+		if errors.Is(err, errorPkg.ErrNotFound) {
 			h.logger.Error("Comment not found", zap.Error(err), zap.String("id", req.ID))
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
