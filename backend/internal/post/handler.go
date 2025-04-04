@@ -5,7 +5,6 @@ import (
 	errorPkg "backend/internal/error"
 	"backend/internal/problem"
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -16,8 +15,8 @@ import (
 )
 
 type CreateRequest struct {
-	Title   string `json:"title"`
-	Content string `json:"content"`
+	Title   string `json:"title"   validate:"required"`
+	Content string `json:"content" validate:"required"`
 }
 
 type Response struct {
@@ -115,24 +114,25 @@ func (h Handler) GetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
-	// Decode the request body
-	decoder := json.NewDecoder(r.Body)
-	var createRequest CreateRequest
-	err := decoder.Decode(&createRequest)
+	traceCtx, span := h.tracer.Start(r.Context(), "CreateEndpoint")
+	defer span.End()
+	logger := internal.LoggerWithContext(traceCtx, h.logger)
+
+	var request CreateRequest
+	err := internal.ParseAndValidateRequestBody(traceCtx, h.validator, r, &request)
 	if err != nil {
-		h.logger.Error("Error decoding body", zap.Error(err))
+		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
-	defer r.Body.Close()
 
 	// Create the post
-	post, err := h.servicer.Create(r.Context(), createRequest)
+	post, err := h.servicer.Create(r.Context(), request)
 	if err != nil {
-		h.logger.Error("Error creating post", zap.Error(err))
+		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 
-	h.logger.Info("Created post", zap.String("id", post.ID.String()))
+	logger.Info("Created post", zap.String("id", post.ID.String()))
 
 	// Write the response
 	response := Response{
