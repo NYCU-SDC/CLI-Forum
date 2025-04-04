@@ -3,20 +3,23 @@ package post
 import (
 	"backend/internal"
 	errorPkg "backend/internal/error"
+	"backend/internal/jwt"
 	"backend/internal/problem"
 	"context"
 	"fmt"
 	"github.com/go-playground/validator/v10"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"net/http"
+	"time"
 )
 
 type CreateRequest struct {
-	Title   string `json:"title"   validate:"required"`
-	Content string `json:"content" validate:"required"`
+	AuthorID uuid.UUID `json:"author_id"`
+	Title    string    `json:"title"   validate:"required"`
+	Content  string    `json:"content" validate:"required"`
 }
 
 type Response struct {
@@ -27,10 +30,10 @@ type Response struct {
 	CreateAt string `json:"create_at"`
 }
 
-//go:generate mockery --name Servicer
-type Servicer interface {
+//go:generate mockery --name Store
+type Store interface {
 	GetAll(ctx context.Context) ([]Post, error)
-	GetByID(ctx context.Context, id pgtype.UUID) (Post, error)
+	GetByID(ctx context.Context, id uuid.UUID) (Post, error)
 	Create(ctx context.Context, request CreateRequest) (Post, error)
 }
 
@@ -39,15 +42,15 @@ type Handler struct {
 	logger    *zap.Logger
 	tracer    trace.Tracer
 
-	servicer Servicer
+	postStore Store
 }
 
-func NewHandler(v *validator.Validate, logger *zap.Logger, s Servicer) Handler {
+func NewHandler(v *validator.Validate, logger *zap.Logger, s Store) Handler {
 	return Handler{
 		tracer:    otel.Tracer("post/handler"),
 		validator: v,
 		logger:    logger,
-		servicer:  s,
+		postStore: s,
 	}
 }
 
@@ -57,7 +60,7 @@ func (h Handler) GetAllHandler(w http.ResponseWriter, r *http.Request) {
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
 	// Get all posts from the service
-	posts, err := h.servicer.GetAll(r.Context())
+	posts, err := h.postStore.GetAll(r.Context())
 	if err != nil {
 		problem.WriteError(traceCtx, w, err, logger)
 		return
@@ -71,7 +74,7 @@ func (h Handler) GetAllHandler(w http.ResponseWriter, r *http.Request) {
 			AuthorID: post.AuthorID.String(),
 			Title:    post.Title.String,
 			Content:  post.Content.String,
-			CreateAt: post.CreateAt.Time.String(),
+			CreateAt: post.CreateAt.Time.Format(time.RFC3339),
 		})
 	}
 
@@ -86,8 +89,8 @@ func (h Handler) GetHandler(w http.ResponseWriter, r *http.Request) {
 	// Get the post id from the path
 	postID := r.PathValue("id")
 
-	// Scan the post id into a pgtype.UUID
-	var id pgtype.UUID
+	// Scan the post id into uuid.UUID
+	var id uuid.UUID
 	err := id.Scan(postID)
 	if err != nil {
 		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", errorPkg.ErrInvalidUUID, err), logger)
@@ -95,7 +98,7 @@ func (h Handler) GetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the post from the service
-	post, err := h.servicer.GetByID(r.Context(), id)
+	post, err := h.postStore.GetByID(r.Context(), id)
 	if err != nil {
 		problem.WriteError(traceCtx, w, err, logger)
 		return
@@ -107,7 +110,7 @@ func (h Handler) GetHandler(w http.ResponseWriter, r *http.Request) {
 		AuthorID: post.AuthorID.String(),
 		Title:    post.Title.String,
 		Content:  post.Content.String,
-		CreateAt: post.CreateAt.Time.String(),
+		CreateAt: post.CreateAt.Time.Format(time.RFC3339),
 	}
 
 	internal.WriteJSONResponse(w, http.StatusOK, response)
@@ -118,6 +121,7 @@ func (h Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
+	// Parse and validate the request body
 	var request CreateRequest
 	err := internal.ParseAndValidateRequestBody(traceCtx, h.validator, r, &request)
 	if err != nil {
@@ -125,8 +129,18 @@ func (h Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get the user from the context
+	user := r.Context().Value(internal.UserContextKey).(jwt.User)
+	var authorID uuid.UUID
+	err = authorID.Scan(user.ID)
+	if err != nil {
+		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", errorPkg.ErrInvalidUUID, err), logger)
+		return
+	}
+	request.AuthorID = authorID
+
 	// Create the post
-	post, err := h.servicer.Create(r.Context(), request)
+	post, err := h.postStore.Create(r.Context(), request)
 	if err != nil {
 		problem.WriteError(traceCtx, w, err, logger)
 		return
@@ -140,7 +154,7 @@ func (h Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		AuthorID: post.AuthorID.String(),
 		Title:    post.Title.String,
 		Content:  post.Content.String,
-		CreateAt: post.CreateAt.Time.String(),
+		CreateAt: post.CreateAt.Time.Format(time.RFC3339),
 	}
 
 	internal.WriteJSONResponse(w, http.StatusOK, response)

@@ -6,7 +6,16 @@ package user
 
 import (
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type Post struct {
+	ID       uuid.UUID
+	AuthorID uuid.UUID
+	Title    pgtype.Text
+	Content  pgtype.Text
+	CreateAt pgtype.Timestamptz
+}
 
 type User struct {
 	ID       uuid.UUID

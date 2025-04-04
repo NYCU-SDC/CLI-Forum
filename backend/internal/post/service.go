@@ -4,6 +4,7 @@ import (
 	"backend/internal"
 	"backend/internal/database"
 	"context"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel"
@@ -11,10 +12,19 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate mockery --name Querier
+type Querier interface {
+	FindAll(ctx context.Context) ([]Post, error)
+	FindByID(ctx context.Context, id uuid.UUID) (Post, error)
+	Create(ctx context.Context, arg CreateParams) (Post, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+	Update(ctx context.Context, arg UpdateParams) (Post, error)
+}
+
 type Service struct {
 	logger *zap.Logger
 	tracer trace.Tracer
-	query  *Queries
+	query  Querier
 }
 
 func NewService(logger *zap.Logger, db *pgxpool.Pool) Service {
@@ -41,7 +51,7 @@ func (s Service) GetAll(ctx context.Context) ([]Post, error) {
 	return posts, nil
 }
 
-func (s Service) GetByID(ctx context.Context, id pgtype.UUID) (Post, error) {
+func (s Service) GetByID(ctx context.Context, id uuid.UUID) (Post, error) {
 	traceCtx, span := s.tracer.Start(ctx, "GetByID")
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
@@ -62,8 +72,9 @@ func (s Service) Create(ctx context.Context, r CreateRequest) (Post, error) {
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
 	createdPost, err := s.query.Create(ctx, CreateParams{
-		Title:   pgtype.Text{String: r.Title},
-		Content: pgtype.Text{String: r.Content},
+		AuthorID: r.AuthorID,
+		Title:    pgtype.Text{String: r.Title},
+		Content:  pgtype.Text{String: r.Content},
 	})
 	if err != nil {
 		err = database.WrapDBError(err, logger)

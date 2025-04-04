@@ -8,6 +8,7 @@ package post
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -16,7 +17,7 @@ INSERT INTO posts (author_id, title, content) VALUES ($1, $2, $3) RETURNING id, 
 `
 
 type CreateParams struct {
-	AuthorID pgtype.UUID
+	AuthorID uuid.UUID
 	Title    pgtype.Text
 	Content  pgtype.Text
 }
@@ -38,7 +39,7 @@ const delete = `-- name: Delete :exec
 DELETE FROM posts WHERE id = $1
 `
 
-func (q *Queries) Delete(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) Delete(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, delete, id)
 	return err
 }
@@ -77,7 +78,7 @@ const findByID = `-- name: FindByID :one
 SELECT id, author_id, title, content, create_at FROM posts WHERE id = $1
 `
 
-func (q *Queries) FindByID(ctx context.Context, id pgtype.UUID) (Post, error) {
+func (q *Queries) FindByID(ctx context.Context, id uuid.UUID) (Post, error) {
 	row := q.db.QueryRow(ctx, findByID, id)
 	var i Post
 	err := row.Scan(
@@ -95,7 +96,7 @@ UPDATE posts SET title = $2, content = $3 WHERE id = $1 RETURNING id, author_id,
 `
 
 type UpdateParams struct {
-	ID      pgtype.UUID
+	ID      uuid.UUID
 	Title   pgtype.Text
 	Content pgtype.Text
 }

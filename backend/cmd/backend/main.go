@@ -126,7 +126,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/posts", requireUserRoleMiddleware(postHandler.GetAllHandler, jwtMiddleware, logger, cfg.Debug))
 	mux.HandleFunc("POST /api/posts", requireUserRoleMiddleware(postHandler.CreateHandler, jwtMiddleware, logger, cfg.Debug))
-	mux.HandleFunc("GET /api/posts/{id}", requireUserRoleMiddleware(postHandler.GetHandler, jwtMiddleware, logger, cfg.Debug))
+	mux.HandleFunc("GET /api/post/{id}", requireUserRoleMiddleware(postHandler.GetHandler, jwtMiddleware, logger, cfg.Debug))
 
 	logger.Info("Starting listening request", zap.String("host", cfg.Host), zap.String("port", cfg.Port))
 	err = http.ListenAndServe(cfg.Host+":"+cfg.Port, mux)
