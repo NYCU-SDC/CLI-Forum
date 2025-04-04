@@ -21,7 +21,7 @@ func (_m *Finder) CreatePost(ctx context.Context, request post.CreateRequest) (p
 	ret := _m.Called(ctx, request)
 
 	if len(ret) == 0 {
-		panic("no return value specified for CreatePost")
+		panic("no return value specified for Create")
 	}
 
 	var r0 post.Post

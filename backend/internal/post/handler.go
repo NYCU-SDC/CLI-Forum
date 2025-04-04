@@ -1,41 +1,70 @@
 package post
 
 import (
+	"backend/internal"
+	errorPkg "backend/internal/error"
+	"backend/internal/problem"
 	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgtype"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"net/http"
 )
 
-//go:generate mockery --name Finder
-type Finder interface {
+type CreateRequest struct {
+	Title   string `json:"title"`
+	Content string `json:"content"`
+}
+
+type Response struct {
+	ID       string `json:"id"`
+	AuthorID string `json:"author_id"`
+	Title    string `json:"title"`
+	Content  string `json:"content"`
+	CreateAt string `json:"create_at"`
+}
+
+//go:generate mockery --name Servicer
+type Servicer interface {
 	GetAll(ctx context.Context) ([]Post, error)
-	GetPost(ctx context.Context, id pgtype.UUID) (Post, error)
-	CreatePost(ctx context.Context, request CreateRequest) (Post, error)
+	GetByID(ctx context.Context, id pgtype.UUID) (Post, error)
+	Create(ctx context.Context, request CreateRequest) (Post, error)
 }
 
 type Handler struct {
-	Finder Finder
-	logger *zap.Logger
+	validator *validator.Validate
+	logger    *zap.Logger
+	tracer    trace.Tracer
+
+	servicer Servicer
 }
 
-func NewHandler(f Finder, logger *zap.Logger) Handler {
+func NewHandler(v *validator.Validate, logger *zap.Logger, s Servicer) Handler {
 	return Handler{
-		Finder: f,
-		logger: logger,
+		tracer:    otel.Tracer("post/handler"),
+		validator: v,
+		logger:    logger,
+		servicer:  s,
 	}
 }
 
-func (h Handler) GetAll(w http.ResponseWriter, r *http.Request) {
+func (h Handler) GetAllHandler(w http.ResponseWriter, r *http.Request) {
+	traceCtx, span := h.tracer.Start(r.Context(), "GetAllEndpoint")
+	defer span.End()
+	logger := internal.LoggerWithContext(traceCtx, h.logger)
+
 	// Get all posts from the service
-	posts, err := h.Finder.GetAll(r.Context())
+	posts, err := h.servicer.GetAll(r.Context())
 	if err != nil {
-		h.logger.Error("Error getting all posts", zap.Error(err))
+		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 
-	// Create the response
+	// Write the response
 	var response []Response
 	for _, post := range posts {
 		response = append(response, Response{
@@ -47,43 +76,33 @@ func (h Handler) GetAll(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Write the response
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		h.logger.Error("error encoding response", zap.Error(err))
-		return
-	}
+	internal.WriteJSONResponse(w, http.StatusOK, response)
 }
 
-func (h Handler) GetPost(w http.ResponseWriter, r *http.Request) {
-	// Get the post id from the query string
-	postID := r.URL.Query().Get("id")
-	if postID == "" {
-		h.logger.Error("missing post id")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
+func (h Handler) GetHandler(w http.ResponseWriter, r *http.Request) {
+	traceCtx, span := h.tracer.Start(r.Context(), "GetPostHandler")
+	defer span.End()
+	logger := internal.LoggerWithContext(traceCtx, h.logger)
+
+	// Get the post id from the path
+	postID := r.PathValue("id")
 
 	// Scan the post id into a pgtype.UUID
 	var id pgtype.UUID
 	err := id.Scan(postID)
 	if err != nil {
-		h.logger.Error("error scanning post id", zap.Error(err))
-		w.WriteHeader(http.StatusBadRequest)
+		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", errorPkg.ErrInvalidUUID, err), logger)
 		return
 	}
 
 	// Get the post from the service
-	post, err := h.Finder.GetPost(r.Context(), id)
+	post, err := h.servicer.GetByID(r.Context(), id)
 	if err != nil {
-		h.logger.Error("Error getting post", zap.Error(err))
-		w.WriteHeader(http.StatusBadRequest)
+		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 
-	// Create the response
+	// Write the response
 	response := Response{
 		ID:       post.ID.String(),
 		AuthorID: post.AuthorID.String(),
@@ -92,19 +111,10 @@ func (h Handler) GetPost(w http.ResponseWriter, r *http.Request) {
 		CreateAt: post.CreateAt.Time.String(),
 	}
 
-	// Write the response
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		h.logger.Error("Error encoding response", zap.Error(err))
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
+	internal.WriteJSONResponse(w, http.StatusOK, response)
 }
 
-func (h Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
+func (h Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	// Decode the request body
 	decoder := json.NewDecoder(r.Body)
 	var createRequest CreateRequest
@@ -116,7 +126,7 @@ func (h Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Create the post
-	post, err := h.Finder.CreatePost(r.Context(), createRequest)
+	post, err := h.servicer.Create(r.Context(), createRequest)
 	if err != nil {
 		h.logger.Error("Error creating post", zap.Error(err))
 		return
@@ -124,7 +134,7 @@ func (h Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info("Created post", zap.String("id", post.ID.String()))
 
-	// Create the response
+	// Write the response
 	response := Response{
 		ID:       post.ID.String(),
 		AuthorID: post.AuthorID.String(),
@@ -133,12 +143,5 @@ func (h Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		CreateAt: post.CreateAt.Time.String(),
 	}
 
-	// Write the response
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		h.logger.Error("Error encoding response", zap.Error(err))
-		return
-	}
+	internal.WriteJSONResponse(w, http.StatusOK, response)
 }
