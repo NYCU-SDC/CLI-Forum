@@ -8,6 +8,7 @@ package comment
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -16,10 +17,10 @@ INSERT INTO comments (post_id, author_id, title, content) VALUES ($1, $2, $3, $4
 `
 
 type CreateParams struct {
-	PostID   pgtype.UUID `json:"post_id"`
-	AuthorID pgtype.UUID `json:"author_id"`
-	Title    pgtype.Text `json:"title"`
-	Content  pgtype.Text `json:"content"`
+	PostID   pgtype.UUID
+	AuthorID pgtype.UUID
+	Title    pgtype.Text
+	Content  pgtype.Text
 }
 
 func (q *Queries) Create(ctx context.Context, arg CreateParams) (Comment, error) {
@@ -45,7 +46,7 @@ const delete = `-- name: Delete :exec
 DELETE FROM comments WHERE id = $1
 `
 
-func (q *Queries) Delete(ctx context.Context, id pgtype.UUID) error {
+func (q *Queries) Delete(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, delete, id)
 	return err
 }
@@ -85,7 +86,7 @@ const findByID = `-- name: FindByID :one
 SELECT id, post_id, author_id, title, content, created_at FROM comments WHERE id = $1
 `
 
-func (q *Queries) FindByID(ctx context.Context, id pgtype.UUID) (Comment, error) {
+func (q *Queries) FindByID(ctx context.Context, id uuid.UUID) (Comment, error) {
 	row := q.db.QueryRow(ctx, findByID, id)
 	var i Comment
 	err := row.Scan(
@@ -99,14 +100,45 @@ func (q *Queries) FindByID(ctx context.Context, id pgtype.UUID) (Comment, error)
 	return i, err
 }
 
+const findByPostID = `-- name: FindByPostID :many
+SELECT id, post_id, author_id, title, content, created_at FROM comments WHERE post_id = $1
+`
+
+func (q *Queries) FindByPostID(ctx context.Context, postID pgtype.UUID) ([]Comment, error) {
+	rows, err := q.db.Query(ctx, findByPostID, postID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Comment
+	for rows.Next() {
+		var i Comment
+		if err := rows.Scan(
+			&i.ID,
+			&i.PostID,
+			&i.AuthorID,
+			&i.Title,
+			&i.Content,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const update = `-- name: Update :one
 UPDATE comments SET title = $2, content = $3 WHERE id = $1 RETURNING id, post_id, author_id, title, content, created_at
 `
 
 type UpdateParams struct {
-	ID      pgtype.UUID `json:"id"`
-	Title   pgtype.Text `json:"title"`
-	Content pgtype.Text `json:"content"`
+	ID      uuid.UUID
+	Title   pgtype.Text
+	Content pgtype.Text
 }
 
 func (q *Queries) Update(ctx context.Context, arg UpdateParams) (Comment, error) {

@@ -5,14 +5,21 @@
 package comment
 
 import (
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Comment struct {
-	ID        pgtype.UUID        `json:"id"`
-	PostID    pgtype.UUID        `json:"post_id"`
-	AuthorID  pgtype.UUID        `json:"author_id"`
-	Title     pgtype.Text        `json:"title"`
-	Content   pgtype.Text        `json:"content"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID        uuid.UUID
+	PostID    pgtype.UUID
+	AuthorID  pgtype.UUID
+	Title     pgtype.Text
+	Content   pgtype.Text
+	CreatedAt pgtype.Timestamptz
+}
+
+type User struct {
+	ID       uuid.UUID
+	Name     string
+	Password string
 }

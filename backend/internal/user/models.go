@@ -6,7 +6,17 @@ package user
 
 import (
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type Comment struct {
+	ID        uuid.UUID
+	PostID    pgtype.UUID
+	AuthorID  pgtype.UUID
+	Title     pgtype.Text
+	Content   pgtype.Text
+	CreatedAt pgtype.Timestamptz
+}
 
 type User struct {
 	ID       uuid.UUID

@@ -6,6 +6,7 @@ import (
 	errorPkg "backend/internal/error"
 	"context"
 	"errors"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -13,16 +14,16 @@ import (
 )
 
 type Service struct {
-	logger         *zap.Logger
-	tracer         trace.Tracer
-	commentQuerier Querier
+	logger *zap.Logger
+	tracer trace.Tracer
+	query  *Queries
 }
 
-func NewService(logger *zap.Logger, queries Querier) *Service {
+func NewService(logger *zap.Logger, db DBTX) *Service {
 	return &Service{
-		logger:         logger,
-		tracer:         otel.Tracer("comment/service"),
-		commentQuerier: queries,
+		logger: logger,
+		tracer: otel.Tracer("comment/service"),
+		query:  New(db),
 	}
 }
 
@@ -31,7 +32,7 @@ func (s *Service) GetAll(ctx context.Context) ([]Comment, error) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
-	comments, err := s.commentQuerier.FindAll(ctx)
+	comments, err := s.query.FindAll(ctx)
 
 	if err != nil {
 		err = database.WrapDBError(err, logger)
@@ -43,12 +44,12 @@ func (s *Service) GetAll(ctx context.Context) ([]Comment, error) {
 	return comments, nil
 }
 
-func (s *Service) GetById(ctx context.Context, id pgtype.UUID) (Comment, error) {
+func (s *Service) GetById(ctx context.Context, id uuid.UUID) (Comment, error) {
 	traceCtx, span := s.tracer.Start(ctx, "GetById")
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
-	comment, err := s.commentQuerier.FindByID(ctx, id)
+	comment, err := s.query.FindByID(ctx, id)
 
 	if err != nil {
 		err = database.WrapDBError(err, logger)
@@ -66,12 +67,30 @@ func (s *Service) GetById(ctx context.Context, id pgtype.UUID) (Comment, error) 
 	return comment, nil
 }
 
+func (s *Service) GetByPost(ctx context.Context, postId pgtype.UUID) ([]Comment, error) {
+	traceCtx, span := s.tracer.Start(ctx, "GetByPost")
+	defer span.End()
+	logger := internal.LoggerWithContext(traceCtx, s.logger)
+
+	comments, err := s.query.FindByPostID(traceCtx, postId)
+
+	if err != nil {
+		err = database.WrapDBError(err, logger)
+		span.RecordError(err)
+
+		logger.Error("Error fetching comments in post", zap.Error(err), zap.String("postId", postId.String()))
+		return nil, err
+	}
+
+	return comments, nil
+}
+
 func (s *Service) Create(ctx context.Context, arg CreateParams) (Comment, error) {
 	traceCtx, span := s.tracer.Start(ctx, "Create")
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
-	comment, err := s.commentQuerier.Create(ctx, arg)
+	comment, err := s.query.Create(ctx, arg)
 
 	if err != nil {
 		err = database.WrapDBError(err, logger)
@@ -88,7 +107,7 @@ func (s *Service) Update(ctx context.Context, arg UpdateParams) (Comment, error)
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
-	comment, err := s.commentQuerier.Update(ctx, arg)
+	comment, err := s.query.Update(ctx, arg)
 	if err != nil {
 		err = database.WrapDBError(err, logger)
 		span.RecordError(err)
@@ -105,12 +124,12 @@ func (s *Service) Update(ctx context.Context, arg UpdateParams) (Comment, error)
 	return comment, nil
 }
 
-func (s *Service) Delete(ctx context.Context, id pgtype.UUID) error {
+func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	traceCtx, span := s.tracer.Start(ctx, "Delete")
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
-	err := s.commentQuerier.Delete(ctx, id)
+	err := s.query.Delete(ctx, id)
 
 	if err != nil {
 		err = database.WrapDBError(err, logger)
