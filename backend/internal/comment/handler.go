@@ -7,7 +7,6 @@ import (
 	"context"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
@@ -22,7 +21,7 @@ type Getter interface {
 
 type Store interface {
 	Create(ctx context.Context, arg CreateRequest) (Comment, error)
-	Delete(ctx context.Context, id pgtype.UUID) error
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 type Handler struct {
@@ -33,12 +32,13 @@ type Handler struct {
 	store     Store
 }
 
-func NewHandler(logger *zap.Logger, getter Getter, store Store) *Handler {
+func NewHandler(validator *validator.Validate, logger *zap.Logger, getter Getter, store Store) *Handler {
 	return &Handler{
-		logger: logger,
-		tracer: otel.Tracer("comment/handler"),
-		getter: getter,
-		store:  store,
+		logger:    logger,
+		tracer:    otel.Tracer("comment/handler"),
+		validator: validator,
+		getter:    getter,
+		store:     store,
 	}
 }
 
