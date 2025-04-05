@@ -2,10 +2,9 @@ package comment
 
 import (
 	"backend/internal"
-	errorPkg "backend/internal/error"
+	"backend/internal/problem"
 	"context"
-	"encoding/json"
-	"errors"
+	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgtype"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -25,10 +24,11 @@ type Store interface {
 }
 
 type Handler struct {
-	logger *zap.Logger
-	tracer trace.Tracer
-	getter Getter
-	store  Store
+	logger    *zap.Logger
+	tracer    trace.Tracer
+	validator *validator.Validate
+	getter    Getter
+	store     Store
 }
 
 func NewHandler(logger *zap.Logger, getter Getter, store Store) *Handler {
@@ -41,7 +41,7 @@ func NewHandler(logger *zap.Logger, getter Getter, store Store) *Handler {
 }
 
 type GetByIdRequest struct {
-	ID string `json:"id"`
+	ID string `json:"id" validate:"required,uuid"`
 }
 
 type Response struct {
@@ -63,7 +63,7 @@ func (h *Handler) GetAllCommentHandler(w http.ResponseWriter, r *http.Request) {
 	// Handle error if fetching comment list fails
 	if err != nil {
 		logger.Error("Error fetching comment list", zap.Error(err))
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 
@@ -81,13 +81,7 @@ func (h *Handler) GetAllCommentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write response
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		logger.Error("Error encoding response", zap.Error(err))
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	internal.WriteJSONResponse(w, http.StatusOK, response)
 }
 
 func (h *Handler) GetCommentByIdHandler(w http.ResponseWriter, r *http.Request) {
@@ -97,10 +91,11 @@ func (h *Handler) GetCommentByIdHandler(w http.ResponseWriter, r *http.Request) 
 
 	// Extract ID from request
 	var req GetByIdRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
+	err := internal.ParseAndValidateRequestBody(traceCtx, h.validator, r, &req)
+
 	if err != nil {
 		logger.Error("Error decoding request body", zap.Error(err), zap.Any("body", r.Body))
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 
@@ -109,20 +104,15 @@ func (h *Handler) GetCommentByIdHandler(w http.ResponseWriter, r *http.Request) 
 	err = uuid.Scan(req.ID)
 	if err != nil {
 		logger.Error("Error parsing UUID", zap.Error(err), zap.String("id", req.ID))
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 
 	// Fetch comment by ID
 	comment, err := h.getter.GetById(r.Context(), uuid)
 	if err != nil {
-		if errors.Is(err, errorPkg.ErrNotFound) {
-			logger.Error("Comment not found", zap.Error(err), zap.String("id", req.ID))
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
-		}
 		logger.Error("Error fetching comment", zap.Error(err), zap.String("id", req.ID))
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 
@@ -137,11 +127,5 @@ func (h *Handler) GetCommentByIdHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Write response
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		logger.Error("Error encoding response", zap.Error(err), zap.Any("response", response))
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	internal.WriteJSONResponse(w, http.StatusOK, response)
 }
