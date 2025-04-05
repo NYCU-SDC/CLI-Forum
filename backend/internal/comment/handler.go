@@ -2,6 +2,7 @@ package comment
 
 import (
 	"backend/internal"
+	"backend/internal/jwt"
 	"backend/internal/problem"
 	"context"
 	"github.com/go-playground/validator/v10"
@@ -49,6 +50,12 @@ type GetByPostRequest struct {
 	PostId string `json:"post_id" validate:"required,uuid"`
 }
 
+type CreateRequest struct {
+	PostId  string `json:"post_id" validate:"required,uuid"`
+	Title   string `json:"title" validate:"required"`
+	Content string `json:"content" validate:"required"`
+}
+
 type Response struct {
 	ID        string `json:"id"`
 	PostId    string `json:"post_id"`
@@ -58,7 +65,7 @@ type Response struct {
 	CreatedAt string `json:"created_at"`
 }
 
-func (h *Handler) GetAllCommentHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetAllHandler(w http.ResponseWriter, r *http.Request) {
 	traceCtx, span := h.tracer.Start(r.Context(), "GetAllCommentEndpoint")
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
@@ -89,7 +96,7 @@ func (h *Handler) GetAllCommentHandler(w http.ResponseWriter, r *http.Request) {
 	internal.WriteJSONResponse(w, http.StatusOK, response)
 }
 
-func (h *Handler) GetCommentByIdHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	traceCtx, span := h.tracer.Start(r.Context(), "GetCommentByIdEndpoint")
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
@@ -135,7 +142,7 @@ func (h *Handler) GetCommentByIdHandler(w http.ResponseWriter, r *http.Request) 
 	internal.WriteJSONResponse(w, http.StatusOK, response)
 }
 
-func (h *Handler) GetCommentByPostHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetByPostHandler(w http.ResponseWriter, r *http.Request) {
 	traceCtx, span := h.tracer.Start(r.Context(), "GetCommentByPostEndpoint")
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
@@ -177,6 +184,69 @@ func (h *Handler) GetCommentByPostHandler(w http.ResponseWriter, r *http.Request
 			Content:   comment.Content.String,
 			CreatedAt: comment.CreatedAt.Time.String(),
 		})
+	}
+
+	// Write response
+	internal.WriteJSONResponse(w, http.StatusOK, response)
+}
+
+func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
+	traceCtx, span := h.tracer.Start(r.Context(), "CreateCommentEndpoint")
+	defer span.End()
+	logger := internal.LoggerWithContext(traceCtx, h.logger)
+
+	// Parse and validate request body
+	var req CreateRequest
+	err := internal.ParseAndValidateRequestBody(traceCtx, h.validator, r, &req)
+	if err != nil {
+		logger.Error("Error decoding request body", zap.Error(err), zap.Any("body", r.Body))
+		problem.WriteError(traceCtx, w, err, logger)
+		return
+	}
+
+	// Convert PostId to UUID
+	var postId pgtype.UUID
+	err = postId.Scan(req.PostId)
+	if err != nil {
+		logger.Error("Error parsing UUID", zap.Error(err), zap.String("post_id", req.PostId))
+		problem.WriteError(traceCtx, w, err, logger)
+		return
+	}
+
+	// Convert AuthorId to UUID
+	var authorId pgtype.UUID
+	u := r.Context().Value(internal.UserContextKey).(jwt.User)
+	err = authorId.Scan(u.ID)
+	if err != nil {
+		logger.Error("Error getting author id from context", zap.Error(err), zap.String("author_id", u.ID))
+		problem.WriteError(traceCtx, w, err, logger)
+		return
+	}
+
+	// Convert request to CreateParams
+	createParams := CreateParams{
+		PostID:   postId,
+		AuthorID: authorId,
+		Title:    pgtype.Text{String: req.Title, Valid: true},
+		Content:  pgtype.Text{String: req.Content, Valid: true},
+	}
+
+	// Create comment
+	comment, err := h.store.Create(r.Context(), createParams)
+	if err != nil {
+		logger.Error("Error creating comment", zap.Error(err))
+		problem.WriteError(traceCtx, w, err, logger)
+		return
+	}
+
+	// Convert comment to Response
+	response := Response{
+		ID:        comment.ID.String(),
+		PostId:    comment.PostID.String(),
+		AuthorId:  comment.AuthorID.String(),
+		Title:     comment.Title.String,
+		Content:   comment.Content.String,
+		CreatedAt: comment.CreatedAt.Time.String(),
 	}
 
 	// Write response
