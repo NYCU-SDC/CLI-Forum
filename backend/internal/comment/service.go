@@ -67,7 +67,7 @@ func (s *Service) GetById(ctx context.Context, id uuid.UUID) (Comment, error) {
 	return comment, nil
 }
 
-func (s *Service) GetByPost(ctx context.Context, postId pgtype.UUID) ([]Comment, error) {
+func (s *Service) GetByPost(ctx context.Context, postId uuid.UUID) ([]Comment, error) {
 	traceCtx, span := s.tracer.Start(ctx, "GetByPost")
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
@@ -85,12 +85,17 @@ func (s *Service) GetByPost(ctx context.Context, postId pgtype.UUID) ([]Comment,
 	return comments, nil
 }
 
-func (s *Service) Create(ctx context.Context, arg CreateParams) (Comment, error) {
+func (s *Service) Create(ctx context.Context, arg CreateRequest) (Comment, error) {
 	traceCtx, span := s.tracer.Start(ctx, "Create")
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
-	comment, err := s.query.Create(ctx, arg)
+	comment, err := s.query.Create(ctx, CreateParams{
+		PostID:   arg.PostID,
+		AuthorID: arg.AuthorID,
+		Title:    pgtype.Text{String: arg.Title, Valid: true},
+		Content:  pgtype.Text{String: arg.Content, Valid: true},
+	})
 
 	if err != nil {
 		err = database.WrapDBError(err, logger)

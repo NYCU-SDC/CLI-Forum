@@ -6,6 +6,7 @@ import (
 	"backend/internal/problem"
 	"context"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -15,12 +16,12 @@ import (
 
 type Getter interface {
 	GetAll(ctx context.Context) ([]Comment, error)
-	GetById(ctx context.Context, id pgtype.UUID) (Comment, error)
-	GetByPost(ctx context.Context, postId pgtype.UUID) ([]Comment, error)
+	GetById(ctx context.Context, id uuid.UUID) (Comment, error)
+	GetByPost(ctx context.Context, postId uuid.UUID) ([]Comment, error)
 }
 
 type Store interface {
-	Create(ctx context.Context, arg CreateParams) (Comment, error)
+	Create(ctx context.Context, arg CreateRequest) (Comment, error)
 	Update(ctx context.Context, arg UpdateParams) (Comment, error)
 	Delete(ctx context.Context, id pgtype.UUID) error
 }
@@ -47,13 +48,14 @@ type GetByIdRequest struct {
 }
 
 type GetByPostRequest struct {
-	PostId string `json:"post_id" validate:"required,uuid"`
+	PostID string `json:"post_id" validate:"required,uuid"`
 }
 
 type CreateRequest struct {
-	PostId  string `json:"post_id" validate:"required,uuid"`
-	Title   string `json:"title" validate:"required"`
-	Content string `json:"content" validate:"required"`
+	PostID   uuid.UUID `json:"post_id"`
+	AuthorID uuid.UUID `json:"author_id"`
+	Title    string    `json:"title" validate:"required"`
+	Content  string    `json:"content" validate:"required"`
 }
 
 type Response struct {
@@ -112,8 +114,8 @@ func (h *Handler) GetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify and transform ID
-	var uuid pgtype.UUID
-	err = uuid.Scan(req.ID)
+	var id uuid.UUID
+	err = id.Scan(req.ID)
 	if err != nil {
 		logger.Error("Error parsing UUID", zap.Error(err), zap.String("id", req.ID))
 		problem.WriteError(traceCtx, w, err, logger)
@@ -121,7 +123,7 @@ func (h *Handler) GetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch comment by ID
-	comment, err := h.getter.GetById(r.Context(), uuid)
+	comment, err := h.getter.GetById(r.Context(), id)
 	if err != nil {
 		logger.Error("Error fetching comment", zap.Error(err), zap.String("id", req.ID))
 		problem.WriteError(traceCtx, w, err, logger)
@@ -157,19 +159,19 @@ func (h *Handler) GetByPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify and transform PostID
-	var uuid pgtype.UUID
-	err = uuid.Scan(req.PostId)
+	var postID uuid.UUID
+	err = postID.Scan(req.PostID)
 	if err != nil {
-		logger.Error("Error parsing UUID", zap.Error(err), zap.String("post_id", req.PostId))
+		logger.Error("Error parsing UUID", zap.Error(err), zap.String("post_id", req.PostID))
 		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 
 	// Fetch comments by PostID
 	var response []Response
-	comments, err := h.getter.GetByPost(r.Context(), uuid)
+	comments, err := h.getter.GetByPost(traceCtx, postID)
 	if err != nil {
-		logger.Error("Error fetching comments by post id", zap.Error(err), zap.String("post_id", req.PostId))
+		logger.Error("Error fetching comments by post id", zap.Error(err), zap.String("post_id", req.PostID))
 		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
@@ -205,16 +207,16 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert PostId to UUID
-	var postId pgtype.UUID
-	err = postId.Scan(req.PostId)
+	var postId uuid.UUID
+	err = postId.Scan(req.PostID)
 	if err != nil {
-		logger.Error("Error parsing UUID", zap.Error(err), zap.String("post_id", req.PostId))
+		logger.Error("Error parsing UUID", zap.Error(err), zap.String("post_id", req.PostID.String()))
 		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 
 	// Convert AuthorId to UUID
-	var authorId pgtype.UUID
+	var authorId uuid.UUID
 	u := r.Context().Value(internal.UserContextKey).(jwt.User)
 	err = authorId.Scan(u.ID)
 	if err != nil {
@@ -223,16 +225,8 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert request to CreateParams
-	createParams := CreateParams{
-		PostID:   postId,
-		AuthorID: authorId,
-		Title:    pgtype.Text{String: req.Title, Valid: true},
-		Content:  pgtype.Text{String: req.Content, Valid: true},
-	}
-
 	// Create comment
-	comment, err := h.store.Create(r.Context(), createParams)
+	comment, err := h.store.Create(traceCtx, req)
 	if err != nil {
 		logger.Error("Error creating comment", zap.Error(err))
 		problem.WriteError(traceCtx, w, err, logger)

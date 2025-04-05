@@ -11,8 +11,8 @@ import (
 
 type Comment struct {
 	ID        uuid.UUID
-	PostID    pgtype.UUID
-	AuthorID  pgtype.UUID
+	PostID    uuid.UUID
+	AuthorID  uuid.UUID
 	Title     pgtype.Text
 	Content   pgtype.Text
 	CreatedAt pgtype.Timestamptz

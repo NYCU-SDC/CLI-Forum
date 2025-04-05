@@ -17,8 +17,8 @@ INSERT INTO comments (post_id, author_id, title, content) VALUES ($1, $2, $3, $4
 `
 
 type CreateParams struct {
-	PostID   pgtype.UUID
-	AuthorID pgtype.UUID
+	PostID   uuid.UUID
+	AuthorID uuid.UUID
 	Title    pgtype.Text
 	Content  pgtype.Text
 }
@@ -104,7 +104,7 @@ const findByPostID = `-- name: FindByPostID :many
 SELECT id, post_id, author_id, title, content, created_at FROM comments WHERE post_id = $1
 `
 
-func (q *Queries) FindByPostID(ctx context.Context, postID pgtype.UUID) ([]Comment, error) {
+func (q *Queries) FindByPostID(ctx context.Context, postID uuid.UUID) ([]Comment, error) {
 	rows, err := q.db.Query(ctx, findByPostID, postID)
 	if err != nil {
 		return nil, err
