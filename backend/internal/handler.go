@@ -50,8 +50,16 @@ func ParseAndValidateRequestBody(ctx context.Context, v *validator.Validate, r *
 func WriteJSONResponse(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	jsonBytes, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+		return
+	}
+
+	_, err = w.Write(jsonBytes)
+	if err != nil {
+		http.Error(w, "Failed to write response", http.StatusInternalServerError)
+		return
 	}
 }
 

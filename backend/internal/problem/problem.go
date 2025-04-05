@@ -57,12 +57,19 @@ func WriteError(ctx context.Context, w http.ResponseWriter, err error, logger *z
 		problem = NewInternalServerProblem("Internal server error")
 	}
 
-	logger.Warn("Handling "+problem.Title, zap.String("problem", problem.Title), zap.Int("status", problem.Status), zap.String("type", problem.Type), zap.String("detail", problem.Detail), zap.Error(err))
+	logger.Warn("Handling "+problem.Title, zap.String("problem", problem.Title), zap.Error(err), zap.Int("status", problem.Status), zap.String("type", problem.Type), zap.String("detail", problem.Detail))
 
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(problem.Status)
-	if err := json.NewEncoder(w).Encode(problem); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	jsonBytes, err := json.Marshal(problem)
+	if err != nil {
+		http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+		return
+	}
+
+	_, err = w.Write(jsonBytes)
+	if err != nil {
+		http.Error(w, "Failed to write response", http.StatusInternalServerError)
 		return
 	}
 }
