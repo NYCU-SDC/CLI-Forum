@@ -52,7 +52,7 @@ func (s *Service) GetById(ctx context.Context, id uuid.UUID) (Comment, error) {
 	comment, err := s.query.FindByID(ctx, id)
 
 	if err != nil {
-		err = database.WrapDBError(err, logger)
+		err = database.WrapDBErrorWithKeyValue(err, "comments", "id", id.String(), logger)
 		span.RecordError(err)
 
 		// Required entry not found
@@ -114,7 +114,7 @@ func (s *Service) Update(ctx context.Context, arg UpdateParams) (Comment, error)
 
 	comment, err := s.query.Update(ctx, arg)
 	if err != nil {
-		err = database.WrapDBError(err, logger)
+		err = database.WrapDBErrorWithKeyValue(err, "comments", "id", arg.ID.String(), logger)
 		span.RecordError(err)
 
 		// Required entry not found
@@ -137,7 +137,7 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	err := s.query.Delete(ctx, id)
 
 	if err != nil {
-		err = database.WrapDBError(err, logger)
+		err = database.WrapDBErrorWithKeyValue(err, "comments", "id", id.String(), logger)
 		span.RecordError(err)
 
 		// Required entry not found
