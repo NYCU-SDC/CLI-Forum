@@ -2,9 +2,11 @@ package comment
 
 import (
 	"backend/internal"
+	errorPkg "backend/internal/error"
 	"backend/internal/jwt"
 	"backend/internal/problem"
 	"context"
+	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
@@ -102,7 +104,7 @@ func (h *Handler) GetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	err := id.Scan(commentID)
 	if err != nil {
 		logger.Error("Error parsing UUID", zap.Error(err), zap.String("id", commentID))
-		problem.WriteError(traceCtx, w, err, logger)
+		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", errorPkg.ErrInvalidUUID, err), logger)
 		return
 	}
 
@@ -141,7 +143,7 @@ func (h *Handler) GetByPostHandler(w http.ResponseWriter, r *http.Request) {
 	err := id.Scan(postID)
 	if err != nil {
 		logger.Error("Error parsing UUID", zap.Error(err), zap.String("post_id", postID))
-		problem.WriteError(traceCtx, w, err, logger)
+		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", errorPkg.ErrInvalidUUID, err), logger)
 		return
 	}
 
@@ -192,7 +194,7 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	err = id.Scan(postID)
 	if err != nil {
 		logger.Error("Error parsing UUID", zap.Error(err), zap.String("post_id", postID))
-		problem.WriteError(traceCtx, w, err, logger)
+		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", errorPkg.ErrInvalidUUID, err), logger)
 		return
 	}
 	req.PostID = id

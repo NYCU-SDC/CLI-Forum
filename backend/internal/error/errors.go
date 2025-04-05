@@ -12,6 +12,7 @@ var (
 	ErrUserAlreadyExists = errors.New("user already exists")
 	ErrUnauthorized      = errors.New("unauthorized")
 	ErrInternalServer    = errors.New("internal server error")
+	ErrInvalidUUID       = errors.New("invalid UUID format")
 )
 
 type NotFoundError struct {
