@@ -22,7 +22,6 @@ type Getter interface {
 
 type Store interface {
 	Create(ctx context.Context, arg CreateRequest) (Comment, error)
-	Update(ctx context.Context, arg UpdateParams) (Comment, error)
 	Delete(ctx context.Context, id pgtype.UUID) error
 }
 
@@ -41,14 +40,6 @@ func NewHandler(logger *zap.Logger, getter Getter, store Store) *Handler {
 		getter: getter,
 		store:  store,
 	}
-}
-
-type GetByIdRequest struct {
-	ID string `json:"id" validate:"required,uuid"`
-}
-
-type GetByPostRequest struct {
-	PostID string `json:"post_id" validate:"required,uuid"`
 }
 
 type CreateRequest struct {
@@ -103,21 +94,14 @@ func (h *Handler) GetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
-	// Extract ID from request
-	var req GetByIdRequest
-	err := internal.ParseAndValidateRequestBody(traceCtx, h.validator, r, &req)
+	// Get comment ID from request
+	commentID := r.PathValue("id")
 
-	if err != nil {
-		logger.Error("Error decoding request body", zap.Error(err), zap.Any("body", r.Body))
-		problem.WriteError(traceCtx, w, err, logger)
-		return
-	}
-
-	// Verify and transform ID
+	// Verify and transform ID to UUID
 	var id uuid.UUID
-	err = id.Scan(req.ID)
+	err := id.Scan(commentID)
 	if err != nil {
-		logger.Error("Error parsing UUID", zap.Error(err), zap.String("id", req.ID))
+		logger.Error("Error parsing UUID", zap.Error(err), zap.String("id", commentID))
 		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
@@ -125,7 +109,7 @@ func (h *Handler) GetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	// Fetch comment by ID
 	comment, err := h.getter.GetById(r.Context(), id)
 	if err != nil {
-		logger.Error("Error fetching comment", zap.Error(err), zap.String("id", req.ID))
+		logger.Error("Error fetching comment", zap.Error(err), zap.String("id", commentID))
 		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
@@ -149,34 +133,28 @@ func (h *Handler) GetByPostHandler(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
-	// Extract PostID from request
-	var req GetByPostRequest
-	err := internal.ParseAndValidateRequestBody(traceCtx, h.validator, r, &req)
-	if err != nil {
-		logger.Error("Error decoding request body", zap.Error(err), zap.Any("body", r.Body))
-		problem.WriteError(traceCtx, w, err, logger)
-		return
-	}
+	// Get post ID from request
+	postID := r.PathValue("post_id")
 
-	// Verify and transform PostID
-	var postID uuid.UUID
-	err = postID.Scan(req.PostID)
+	// Verify and transform ID to UUID
+	var id uuid.UUID
+	err := id.Scan(postID)
 	if err != nil {
-		logger.Error("Error parsing UUID", zap.Error(err), zap.String("post_id", req.PostID))
+		logger.Error("Error parsing UUID", zap.Error(err), zap.String("post_id", postID))
 		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 
 	// Fetch comments by PostID
-	var response []Response
-	comments, err := h.getter.GetByPost(traceCtx, postID)
+	comments, err := h.getter.GetByPost(traceCtx, id)
 	if err != nil {
-		logger.Error("Error fetching comments by post id", zap.Error(err), zap.String("post_id", req.PostID))
+		logger.Error("Error fetching comments by post id", zap.Error(err), zap.String("post_id", id.String()))
 		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 
 	// Convert comments to Response
+	var response []Response
 	for _, comment := range comments {
 		response = append(response, Response{
 			ID:        comment.ID.String(),
@@ -206,14 +184,18 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert PostId to UUID
-	var postId uuid.UUID
-	err = postId.Scan(req.PostID)
+	// Get post ID from request path
+	postID := r.PathValue("post_id")
+
+	// Verify and transform PostID to UUID
+	var id uuid.UUID
+	err = id.Scan(postID)
 	if err != nil {
-		logger.Error("Error parsing UUID", zap.Error(err), zap.String("post_id", req.PostID.String()))
+		logger.Error("Error parsing UUID", zap.Error(err), zap.String("post_id", postID))
 		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
+	req.PostID = id
 
 	// Convert AuthorId to UUID
 	var authorId uuid.UUID
@@ -224,6 +206,7 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
+	req.AuthorID = authorId
 
 	// Create comment
 	comment, err := h.store.Create(traceCtx, req)
