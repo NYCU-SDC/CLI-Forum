@@ -36,15 +36,14 @@ func NewService(logger *zap.Logger, db *pgxpool.Pool) Service {
 }
 
 func (s Service) GetAll(ctx context.Context) ([]Post, error) {
-	traceCtx, span := s.tracer.Start(ctx, "GetByID")
+	traceCtx, span := s.tracer.Start(ctx, "GetAll")
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
 	posts, err := s.query.FindAll(traceCtx)
 	if err != nil {
-		err = database.WrapDBError(err, logger)
+		err = database.WrapDBError(err, logger, "Failed to get all posts")
 		span.RecordError(err)
-		logger.Error("Failed to get all posts", zap.Error(err))
 		return nil, err
 	}
 
@@ -67,7 +66,7 @@ func (s Service) GetByID(ctx context.Context, id uuid.UUID) (Post, error) {
 }
 
 func (s Service) Create(ctx context.Context, r CreateRequest) (Post, error) {
-	traceCtx, span := s.tracer.Start(ctx, "GetByID")
+	traceCtx, span := s.tracer.Start(ctx, "Create")
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
@@ -77,9 +76,8 @@ func (s Service) Create(ctx context.Context, r CreateRequest) (Post, error) {
 		Content:  pgtype.Text{String: r.Content, Valid: true},
 	})
 	if err != nil {
-		err = database.WrapDBError(err, logger)
+		err = database.WrapDBError(err, logger, "Failed to create post")
 		span.RecordError(err)
-		logger.Error("Failed to create post", zap.Error(err))
 		return Post{}, err
 	}
 	return createdPost, nil

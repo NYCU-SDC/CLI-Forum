@@ -31,7 +31,7 @@ func (e InternalServerError) Error() string {
 	return fmt.Sprintf("internal server error: %s", e.Source.Error())
 }
 
-func WrapDBError(err error, logger *zap.Logger) error {
+func WrapDBError(err error, logger *zap.Logger, message string) error {
 	if err == nil {
 		return nil
 	}
@@ -50,13 +50,18 @@ func WrapDBError(err error, logger *zap.Logger) error {
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
 		case PGErrUniqueViolation:
+			logger.Warn("Unique constraint violation", zap.String("table", pgErr.TableName), zap.String("constraint", pgErr.ConstraintName))
 			return fmt.Errorf("%w: %v", ErrUniqueViolation, err)
 		case PGErrForeignKeyViolation:
+			logger.Warn("Foreign key violation", zap.String("table", pgErr.TableName), zap.String("constraint", pgErr.ConstraintName))
 			return fmt.Errorf("%w: %v", ErrForeignKeyViolation, err)
 		case PGErrDeadlockDetected:
+			logger.Warn("Deadlock detected", zap.String("table", pgErr.TableName), zap.String("constraint", pgErr.ConstraintName))
 			return fmt.Errorf("%w: %v", ErrDeadlockDetected, err)
 		}
 	}
+
+	logger.Error(message, zap.Error(err))
 
 	return InternalServerError{Source: err}
 }

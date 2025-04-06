@@ -3,9 +3,7 @@ package user
 import (
 	"backend/internal"
 	"backend/internal/database"
-	errorPkg "backend/internal/error"
 	"context"
-	"errors"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -41,15 +39,8 @@ func (s *Service) Create(ctx context.Context, name, password string) (User, erro
 		Password: password,
 	})
 	if err != nil {
-		err = database.WrapDBError(err, logger)
+		err = database.WrapDBError(err, logger, "Failed to create user")
 		span.RecordError(err)
-
-		if errors.Is(err, database.ErrUniqueViolation) {
-			logger.Debug("User already exists", zap.String("name", name))
-			return User{}, errorPkg.ErrUserAlreadyExists
-		}
-
-		logger.Error("Failed to create user", zap.Error(err))
 		return User{}, err
 	}
 
