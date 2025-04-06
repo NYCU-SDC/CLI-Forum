@@ -175,15 +175,15 @@ func TestGenerateResponse(t *testing.T) {
 		{
 			name: "Should return post",
 			post: post.Post{
-				ID:       uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-				AuthorID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+				ID:       uuid.MustParse("54a46af2-b454-4746-8ab0-3cf26085a50b"),
+				AuthorID: uuid.MustParse("81c1ecc1-66d7-4134-b5fe-d886a6f418a4"),
 				Title:    pgtype.Text{String: "Title"},
 				Content:  pgtype.Text{String: "Content"},
 				CreateAt: pgtype.Timestamptz{Time: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)},
 			},
 			wantResult: post.Response{
-				ID:       "00000000-0000-0000-0000-000000000001",
-				AuthorID: "00000000-0000-0000-0000-000000000001",
+				ID:       "54a46af2-b454-4746-8ab0-3cf26085a50b",
+				AuthorID: "81c1ecc1-66d7-4134-b5fe-d886a6f418a4",
 				Title:    "Title",
 				Content:  "Content",
 				CreateAt: "2000-01-01T00:00:00Z",
