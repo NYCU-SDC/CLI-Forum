@@ -1,7 +1,6 @@
 package internal
 
 import (
-	errorPkg "backend/internal/error"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -64,10 +63,9 @@ func WriteJSONResponse(w http.ResponseWriter, status int, data interface{}) {
 }
 
 func ParseUUID(value string) (uuid.UUID, error) {
-	var res uuid.UUID
-	err := res.Scan(value)
+	parsedUUID, err := uuid.Parse(value)
 	if err != nil {
-		return res, errorPkg.ErrInvalidUUID
+		return parsedUUID, fmt.Errorf("failed to parse UUID: %w", err)
 	}
-	return res, nil
+	return parsedUUID, nil
 }

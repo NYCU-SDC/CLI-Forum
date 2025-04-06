@@ -2,11 +2,9 @@ package post
 
 import (
 	"backend/internal"
-	errorPkg "backend/internal/error"
 	"backend/internal/jwt"
 	"backend/internal/problem"
 	"context"
-	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
@@ -59,17 +57,14 @@ func (h Handler) GetAllHandler(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
-	// Get all posts from the service
 	posts, err := h.postStore.GetAll(traceCtx)
 	if err != nil {
 		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
-
-	// Write the response
-	var response []Response
-	for _, post := range posts {
-		response = append(response, GenerateResponse(post))
+	response := make([]Response, len(posts))
+	for index, post := range posts {
+		response[index] = GenerateResponse(post)
 	}
 
 	internal.WriteJSONResponse(w, http.StatusOK, response)
@@ -80,19 +75,14 @@ func (h Handler) GetHandler(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
-	// Get the post id from the path
-	postID := r.PathValue("id")
-
-	// Scan the post id into uuid.UUID
-	var id uuid.UUID
-	err := id.Scan(postID)
+	pathID := r.PathValue("id")
+	postID, err := internal.ParseUUID(pathID)
 	if err != nil {
-		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", errorPkg.ErrInvalidUUID, err), logger)
+		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 
-	// Get the post from the service
-	post, err := h.postStore.GetByID(traceCtx, id)
+	post, err := h.postStore.GetByID(traceCtx, postID)
 	if err != nil {
 		problem.WriteError(traceCtx, w, err, logger)
 		return
@@ -107,7 +97,6 @@ func (h Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
-	// Parse and validate the request body
 	var request CreateRequest
 	err := internal.ParseAndValidateRequestBody(traceCtx, h.validator, r, &request)
 	if err != nil {
@@ -131,7 +120,6 @@ func (h Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	request.AuthorID = authorID
 
-	// Create the post
 	post, err := h.postStore.Create(traceCtx, request)
 	if err != nil {
 		problem.WriteError(traceCtx, w, err, logger)
