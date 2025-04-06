@@ -57,9 +57,8 @@ func (s Service) GetByID(ctx context.Context, id uuid.UUID) (Post, error) {
 
 	post, err := s.query.FindByID(traceCtx, id)
 	if err != nil {
-		err = database.WrapDBErrorWithKeyValue(err, "users", "id", id.String(), logger)
+		err = database.WrapDBErrorWithKeyValue(err, "post", "id", id.String(), logger, "get post by id")
 		span.RecordError(err)
-		logger.Error("Failed to get post by ID", zap.Error(err))
 		return Post{}, err
 	}
 	return post, err
@@ -76,7 +75,7 @@ func (s Service) Create(ctx context.Context, r CreateRequest) (Post, error) {
 		Content:  pgtype.Text{String: r.Content, Valid: true},
 	})
 	if err != nil {
-		err = database.WrapDBError(err, logger, "Failed to create post")
+		err = database.WrapDBError(err, logger, "create post")
 		span.RecordError(err)
 		return Post{}, err
 	}

@@ -27,7 +27,7 @@ func (e NotFoundError) Error() string {
 		return e.Message
 	}
 	if e.Key != "" && e.Value != "" {
-		return fmt.Sprintf("unable to find %s with %s=%s", e.Table, e.Key, e.Value)
+		return fmt.Sprintf("unable to find %s with %s '%s'", e.Table, e.Key, e.Value)
 	}
 	return ErrNotFound.Error()
 }

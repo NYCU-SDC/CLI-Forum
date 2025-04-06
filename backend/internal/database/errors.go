@@ -31,67 +31,80 @@ func (e InternalServerError) Error() string {
 	return fmt.Sprintf("internal server error: %s", e.Source.Error())
 }
 
-func WrapDBError(err error, logger *zap.Logger, message string) error {
+func WrapDBError(err error, logger *zap.Logger, operation string) error {
 	if err == nil {
 		return nil
 	}
 
-	logger.Warn("Wrapping database error", zap.Error(err))
+	logger.Error("Failed to "+operation, zap.Error(err))
 
-	if errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("%w: %v", errorPkg.ErrNotFound, err)
-	}
+	var wrappedErr error
 
-	if errors.Is(err, context.DeadlineExceeded) {
-		return ErrQueryTimeout
-	}
-
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		switch pgErr.Code {
-		case PGErrUniqueViolation:
-			logger.Warn("Unique constraint violation", zap.String("table", pgErr.TableName), zap.String("constraint", pgErr.ConstraintName))
-			return fmt.Errorf("%w: %v", ErrUniqueViolation, err)
-		case PGErrForeignKeyViolation:
-			logger.Warn("Foreign key violation", zap.String("table", pgErr.TableName), zap.String("constraint", pgErr.ConstraintName))
-			return fmt.Errorf("%w: %v", ErrForeignKeyViolation, err)
-		case PGErrDeadlockDetected:
-			logger.Warn("Deadlock detected", zap.String("table", pgErr.TableName), zap.String("constraint", pgErr.ConstraintName))
-			return fmt.Errorf("%w: %v", ErrDeadlockDetected, err)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		wrappedErr = fmt.Errorf("%w: %v", errorPkg.ErrNotFound, err)
+	case errors.Is(err, context.DeadlineExceeded):
+		wrappedErr = fmt.Errorf("%w: %v", ErrQueryTimeout, err)
+	default:
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			switch pgErr.Code {
+			case PGErrUniqueViolation:
+				wrappedErr = fmt.Errorf("%w: %v", ErrUniqueViolation, err)
+			case PGErrForeignKeyViolation:
+				wrappedErr = fmt.Errorf("%w: %v", ErrForeignKeyViolation, err)
+			case PGErrDeadlockDetected:
+				wrappedErr = fmt.Errorf("%w: %v", ErrDeadlockDetected, err)
+			}
 		}
 	}
 
-	logger.Error(message, zap.Error(err))
+	isUnknownError := false
+	if wrappedErr == nil {
+		wrappedErr = InternalServerError{Source: err}
+		isUnknownError = true
+	}
 
-	return InternalServerError{Source: err}
+	logger.Warn("Wrapped database error", zap.Error(wrappedErr), zap.String("operation", operation), zap.Bool("unknown_error", isUnknownError))
+
+	return wrappedErr
 }
 
-func WrapDBErrorWithKeyValue(err error, table, key, value string, logger *zap.Logger) error {
+func WrapDBErrorWithKeyValue(err error, table, key, value string, logger *zap.Logger, operation string) error {
 	if err == nil {
 		return nil
 	}
 
-	logger.Warn("Wrapping database error with key value", zap.Error(err), zap.String("table", table), zap.String("key", key), zap.String("value", value))
+	logger.Error("Failed to "+operation, zap.Error(err))
 
-	if errors.Is(err, pgx.ErrNoRows) {
-		return errorPkg.NewNotFoundError(table, key, value, "")
-	}
+	var wrappedErr error
 
-	if errors.Is(err, context.DeadlineExceeded) {
-		return ErrQueryTimeout
-	}
-
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		switch pgErr.Code {
-		case PGErrUniqueViolation:
-			return fmt.Errorf("%w: %v", ErrUniqueViolation, err)
-		case PGErrForeignKeyViolation:
-			return fmt.Errorf("%w: %v", ErrForeignKeyViolation, err)
-		case PGErrDeadlockDetected:
-			return fmt.Errorf("%w: %v", ErrDeadlockDetected, err)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		wrappedErr = errorPkg.NewNotFoundError(table, key, value, "")
+	case errors.Is(err, context.DeadlineExceeded):
+		wrappedErr = fmt.Errorf("%w: %v", ErrQueryTimeout, err)
+	default:
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			switch pgErr.Code {
+			case PGErrUniqueViolation:
+				wrappedErr = fmt.Errorf("%w: %v", ErrUniqueViolation, err)
+			case PGErrForeignKeyViolation:
+				wrappedErr = fmt.Errorf("%w: %v", ErrForeignKeyViolation, err)
+			case PGErrDeadlockDetected:
+				wrappedErr = fmt.Errorf("%w: %v", ErrDeadlockDetected, err)
+			}
 		}
 	}
 
-	return InternalServerError{Source: err}
+	isUnknownError := false
+	if wrappedErr == nil {
+		wrappedErr = InternalServerError{Source: err}
+		isUnknownError = true
+	}
+
+	logger.Warn("Wrapped database error with key value", zap.Error(wrappedErr), zap.String("table", table), zap.String("key", key), zap.String("value", value), zap.String("operation", operation), zap.Bool("unknown_error", isUnknownError))
+
+	return wrappedErr
 }
