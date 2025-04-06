@@ -63,13 +63,15 @@ func WriteError(ctx context.Context, w http.ResponseWriter, err error, logger *z
 	w.WriteHeader(problem.Status)
 	jsonBytes, err := json.Marshal(problem)
 	if err != nil {
-		http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+		logger.Error("Failed to marshal problem response", zap.Error(err))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	_, err = w.Write(jsonBytes)
 	if err != nil {
-		http.Error(w, "Failed to write response", http.StatusInternalServerError)
+		logger.Error("Failed to write problem response", zap.Error(err))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
