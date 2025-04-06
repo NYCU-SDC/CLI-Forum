@@ -15,12 +15,14 @@ import (
 	"net/http"
 )
 
+//go:generate mockery --name=Getter
 type Getter interface {
 	GetAll(ctx context.Context) ([]Comment, error)
 	GetById(ctx context.Context, id uuid.UUID) (Comment, error)
 	GetByPost(ctx context.Context, postId uuid.UUID) ([]Comment, error)
 }
 
+//go:generate mockery --name=Store
 type Store interface {
 	Create(ctx context.Context, arg CreateRequest) (Comment, error)
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -96,7 +98,7 @@ func (h *Handler) GetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
-	// Get comment ID from request
+	// Get comment ID from requestBody
 	commentID := r.PathValue("id")
 
 	// Verify and transform ID to UUID
@@ -135,7 +137,7 @@ func (h *Handler) GetByPostHandler(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
-	// Get post ID from request
+	// Get post ID from requestBody
 	postID := r.PathValue("post_id")
 
 	// Verify and transform ID to UUID
@@ -177,16 +179,16 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
-	// Parse and validate request body
+	// Parse and validate requestBody body
 	var req CreateRequest
 	err := internal.ParseAndValidateRequestBody(traceCtx, h.validator, r, &req)
 	if err != nil {
-		logger.Error("Error decoding request body", zap.Error(err), zap.Any("body", r.Body))
+		logger.Error("Error decoding requestBody body", zap.Error(err), zap.Any("body", r.Body))
 		problem.WriteError(traceCtx, w, err, logger)
 		return
 	}
 
-	// Get post ID from request path
+	// Get post ID from requestBody path
 	postID := r.PathValue("post_id")
 
 	// Verify and transform PostID to UUID

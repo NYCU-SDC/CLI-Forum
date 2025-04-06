@@ -37,8 +37,6 @@ func (s *Service) GetAll(ctx context.Context) ([]Comment, error) {
 	if err != nil {
 		err = database.WrapDBError(err, logger)
 		span.RecordError(err)
-
-		logger.Error("Error fetching all comments", zap.Error(err))
 		return nil, err
 	}
 	return comments, nil
@@ -77,8 +75,6 @@ func (s *Service) GetByPost(ctx context.Context, postId uuid.UUID) ([]Comment, e
 	if err != nil {
 		err = database.WrapDBError(err, logger)
 		span.RecordError(err)
-
-		logger.Error("Error fetching comments in post", zap.Error(err), zap.String("postId", postId.String()))
 		return nil, err
 	}
 
@@ -100,30 +96,6 @@ func (s *Service) Create(ctx context.Context, arg CreateRequest) (Comment, error
 	if err != nil {
 		err = database.WrapDBError(err, logger)
 		span.RecordError(err)
-
-		logger.Error("Error creating comment", zap.Error(err), zap.String("post_id", arg.PostID.String()), zap.String("author_id", arg.AuthorID.String()))
-		return Comment{}, err
-	}
-	return comment, nil
-}
-
-func (s *Service) Update(ctx context.Context, arg UpdateParams) (Comment, error) {
-	traceCtx, span := s.tracer.Start(ctx, "Update")
-	defer span.End()
-	logger := internal.LoggerWithContext(traceCtx, s.logger)
-
-	comment, err := s.query.Update(ctx, arg)
-	if err != nil {
-		err = database.WrapDBErrorWithKeyValue(err, "comments", "id", arg.ID.String(), logger)
-		span.RecordError(err)
-
-		// Required entry not found
-		if errors.Is(err, errorPkg.ErrNotFound) {
-			logger.Error("Comment not found", zap.Error(err), zap.String("id", arg.ID.String()))
-			return Comment{}, err
-		}
-		// Other errors
-		logger.Error("Error updating comment", zap.Error(err), zap.String("id", arg.ID.String()))
 		return Comment{}, err
 	}
 	return comment, nil
