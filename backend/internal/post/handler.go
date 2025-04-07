@@ -104,7 +104,6 @@ func (h Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the user from the context
 	user, err := jwt.GetUserFromContext(traceCtx)
 	if err != nil {
 		logger.DPanic("Can't find user in context, this should never happen")
@@ -112,7 +111,6 @@ func (h Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse the author ID from the user context
 	authorID, err := internal.ParseUUID(user.ID)
 	if err != nil {
 		problem.WriteError(traceCtx, w, err, logger)
