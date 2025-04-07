@@ -112,7 +112,6 @@ func TestHandler_CreateHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not initialize logger: %v", err)
 	}
-	getter := mocks.NewGetter(t)
 	store := mocks.NewStore(t)
 	store.On("Create", mock.Anything, comment.CreateRequest{
 		PostID:   uuid.MustParse("7942c917-4770-43c1-a56a-952186b9970e"),
@@ -129,7 +128,7 @@ func TestHandler_CreateHandler(t *testing.T) {
 			CreatedAt: pgtype.Timestamptz{Time: time.Date(2023, 10, 1, 0, 0, 0, 0, time.UTC)},
 		}, nil)
 
-	h := comment.NewHandler(internal.NewValidator(), logger, getter, store)
+	h := comment.NewHandler(internal.NewValidator(), logger, store)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

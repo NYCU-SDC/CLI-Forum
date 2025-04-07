@@ -15,33 +15,26 @@ import (
 	"net/http"
 )
 
-//go:generate mockery --name=Getter
-type Getter interface {
+//go:generate mockery --name=Store
+type Store interface {
 	GetAll(ctx context.Context) ([]Comment, error)
 	GetById(ctx context.Context, id uuid.UUID) (Comment, error)
 	GetByPost(ctx context.Context, postId uuid.UUID) ([]Comment, error)
-}
-
-//go:generate mockery --name=Store
-type Store interface {
 	Create(ctx context.Context, arg CreateRequest) (Comment, error)
-	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 type Handler struct {
 	logger    *zap.Logger
 	tracer    trace.Tracer
 	validator *validator.Validate
-	getter    Getter
 	store     Store
 }
 
-func NewHandler(validator *validator.Validate, logger *zap.Logger, getter Getter, store Store) *Handler {
+func NewHandler(validator *validator.Validate, logger *zap.Logger, store Store) *Handler {
 	return &Handler{
 		logger:    logger,
 		tracer:    otel.Tracer("comment/handler"),
 		validator: validator,
-		getter:    getter,
 		store:     store,
 	}
 }
@@ -67,7 +60,7 @@ func (h *Handler) GetAllHandler(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
-	commentList, err := h.getter.GetAll(r.Context())
+	commentList, err := h.store.GetAll(r.Context())
 
 	// Handle error if fetching comment list fails
 	if err != nil {
@@ -108,7 +101,7 @@ func (h *Handler) GetByIdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	comment, err := h.getter.GetById(r.Context(), id)
+	comment, err := h.store.GetById(r.Context(), id)
 	if err != nil {
 		logger.Error("Error fetching comment", zap.Error(err), zap.String("id", commentID))
 		problem.WriteError(traceCtx, w, err, logger)
@@ -144,7 +137,7 @@ func (h *Handler) GetByPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	comments, err := h.getter.GetByPost(traceCtx, id)
+	comments, err := h.store.GetByPost(traceCtx, id)
 	if err != nil {
 		logger.Error("Error fetching comments by post id", zap.Error(err), zap.String("post_id", id.String()))
 		problem.WriteError(traceCtx, w, err, logger)

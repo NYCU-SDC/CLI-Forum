@@ -110,7 +110,7 @@ func main() {
 	// initialize handler
 	authHandler := auth.NewHandler(validator, logger, userService, jwtService)
 	userHandler := user.NewHandler(validator, logger, userService)
-	commentHandler := comment.NewHandler(validator, logger, commentService, commentService)
+	commentHandler := comment.NewHandler(validator, logger, commentService)
 
 	// initialize mux
 	mux := http.NewServeMux()
