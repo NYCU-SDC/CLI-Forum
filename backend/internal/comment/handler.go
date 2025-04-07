@@ -77,19 +77,18 @@ func (h *Handler) GetAllHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert commentList to Response
-	var response []Response
-	for _, comment := range commentList {
-		response = append(response, Response{
+	response := make([]Response, len(commentList))
+	for i, comment := range commentList {
+		response[i] = Response{
 			ID:        comment.ID.String(),
 			PostId:    comment.PostID.String(),
 			AuthorId:  comment.AuthorID.String(),
 			Title:     comment.Title.String,
 			Content:   comment.Content.String,
 			CreatedAt: comment.CreatedAt.Time.String(),
-		})
+		}
 	}
 
-	// Write response
 	internal.WriteJSONResponse(w, http.StatusOK, response)
 }
 
@@ -98,7 +97,6 @@ func (h *Handler) GetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
-	// Get comment ID from requestBody
 	commentID := r.PathValue("id")
 
 	// Verify and transform ID to UUID
@@ -110,7 +108,6 @@ func (h *Handler) GetByIdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch comment by ID
 	comment, err := h.getter.GetById(r.Context(), id)
 	if err != nil {
 		logger.Error("Error fetching comment", zap.Error(err), zap.String("id", commentID))
@@ -128,7 +125,6 @@ func (h *Handler) GetByIdHandler(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: comment.CreatedAt.Time.String(),
 	}
 
-	// Write response
 	internal.WriteJSONResponse(w, http.StatusOK, response)
 }
 
@@ -137,7 +133,6 @@ func (h *Handler) GetByPostHandler(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
-	// Get post ID from requestBody
 	postID := r.PathValue("post_id")
 
 	// Verify and transform ID to UUID
@@ -149,7 +144,6 @@ func (h *Handler) GetByPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch comments by PostID
 	comments, err := h.getter.GetByPost(traceCtx, id)
 	if err != nil {
 		logger.Error("Error fetching comments by post id", zap.Error(err), zap.String("post_id", id.String()))
@@ -158,19 +152,18 @@ func (h *Handler) GetByPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert comments to Response
-	var response []Response
-	for _, comment := range comments {
-		response = append(response, Response{
+	response := make([]Response, len(comments))
+	for i, comment := range comments {
+		response[i] = Response{
 			ID:        comment.ID.String(),
 			PostId:    comment.PostID.String(),
 			AuthorId:  comment.AuthorID.String(),
 			Title:     comment.Title.String,
 			Content:   comment.Content.String,
 			CreatedAt: comment.CreatedAt.Time.String(),
-		})
+		}
 	}
 
-	// Write response
 	internal.WriteJSONResponse(w, http.StatusOK, response)
 }
 
@@ -188,7 +181,6 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get post ID from requestBody path
 	postID := r.PathValue("post_id")
 
 	// Verify and transform PostID to UUID
@@ -212,7 +204,6 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	req.AuthorID = authorId
 
-	// Create comment
 	comment, err := h.store.Create(traceCtx, req)
 	if err != nil {
 		logger.Error("Error creating comment", zap.Error(err))
