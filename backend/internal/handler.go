@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"io"
 	"net/http"
@@ -48,7 +49,23 @@ func ParseAndValidateRequestBody(ctx context.Context, v *validator.Validate, r *
 func WriteJSONResponse(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	jsonBytes, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+		return
 	}
+
+	_, err = w.Write(jsonBytes)
+	if err != nil {
+		http.Error(w, "Failed to write response", http.StatusInternalServerError)
+		return
+	}
+}
+
+func ParseUUID(value string) (uuid.UUID, error) {
+	parsedUUID, err := uuid.Parse(value)
+	if err != nil {
+		return parsedUUID, fmt.Errorf("failed to parse UUID: %w", err)
+	}
+	return parsedUUID, nil
 }

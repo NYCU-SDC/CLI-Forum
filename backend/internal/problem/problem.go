@@ -51,15 +51,26 @@ func WriteError(ctx context.Context, w http.ResponseWriter, err error, logger *z
 		problem = NewUnauthorizedProblem("You must be logged in to access this resource")
 	case errors.As(err, &internalDbError):
 		problem = NewInternalServerProblem("Internal server error")
+	case errors.Is(err, errorPkg.ErrInvalidUUID):
+		problem = NewValidateProblem("Invalid UUID format")
 	default:
 		problem = NewInternalServerProblem("Internal server error")
 	}
 
-	logger.Warn("Handling "+problem.Title, zap.String("problem", problem.Title), zap.Int("status", problem.Status), zap.String("type", problem.Type), zap.String("detail", problem.Detail), zap.Error(err))
+	logger.Warn("Handling "+problem.Title, zap.String("problem", problem.Title), zap.Error(err), zap.Int("status", problem.Status), zap.String("type", problem.Type), zap.String("detail", problem.Detail))
 
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(problem.Status)
-	if err := json.NewEncoder(w).Encode(problem); err != nil {
+	jsonBytes, err := json.Marshal(problem)
+	if err != nil {
+		logger.Error("Failed to marshal problem response", zap.Error(err))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	_, err = w.Write(jsonBytes)
+	if err != nil {
+		logger.Error("Failed to write problem response", zap.Error(err))
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
