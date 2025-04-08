@@ -7,6 +7,7 @@ import (
 	"backend/internal/config"
 	"backend/internal/database"
 	"backend/internal/jwt"
+	"backend/internal/post"
 	"backend/internal/user"
 	"context"
 	"errors"
@@ -103,6 +104,7 @@ func main() {
 	jwtService := jwt.NewService(logger, cfg.Secret, 24*time.Hour)
 	userService := user.NewService(logger, dbPool)
 	commentService := comment.NewService(logger, dbPool)
+	postService := post.NewService(logger, dbPool)
 
 	// initialize middleware
 	jwtMiddleware := jwt.NewMiddleware(jwtService, logger)
@@ -111,6 +113,7 @@ func main() {
 	authHandler := auth.NewHandler(validator, logger, userService, jwtService)
 	userHandler := user.NewHandler(validator, logger, userService)
 	commentHandler := comment.NewHandler(validator, logger, commentService)
+	postHandler := post.NewHandler(validator, logger, postService)
 
 	// initialize mux
 	mux := http.NewServeMux()
@@ -128,6 +131,10 @@ func main() {
 	mux.HandleFunc("GET /api/post/{post_id}/comments", requireUserRoleMiddleware(commentHandler.GetByPostHandler, jwtMiddleware, logger, cfg.Debug))
 	mux.HandleFunc("POST /api/post/{post_id}/comments", requireUserRoleMiddleware(commentHandler.CreateHandler, jwtMiddleware, logger, cfg.Debug))
 	mux.HandleFunc("GET /api/comment/{id}", requireUserRoleMiddleware(commentHandler.GetByIdHandler, jwtMiddleware, logger, cfg.Debug))
+
+  mux.HandleFunc("GET /api/posts", requireUserRoleMiddleware(postHandler.GetAllHandler, jwtMiddleware, logger, cfg.Debug))
+	mux.HandleFunc("POST /api/posts", requireUserRoleMiddleware(postHandler.CreateHandler, jwtMiddleware, logger, cfg.Debug))
+	mux.HandleFunc("GET /api/post/{id}", requireUserRoleMiddleware(postHandler.GetHandler, jwtMiddleware, logger, cfg.Debug))
 
 	logger.Info("Starting listening request", zap.String("host", cfg.Host), zap.String("port", cfg.Port))
 	err = http.ListenAndServe(cfg.Host+":"+cfg.Port, mux)

@@ -3,9 +3,7 @@ package user
 import (
 	"backend/internal"
 	"backend/internal/database"
-	errorPkg "backend/internal/error"
 	"context"
-	"errors"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -41,15 +39,8 @@ func (s *Service) Create(ctx context.Context, name, password string) (User, erro
 		Password: password,
 	})
 	if err != nil {
-		err = database.WrapDBError(err, logger)
+		err = database.WrapDBError(err, logger, "Failed to create user")
 		span.RecordError(err)
-
-		if errors.Is(err, database.ErrUniqueViolation) {
-			logger.Debug("User already exists", zap.String("name", name))
-			return User{}, errorPkg.ErrUserAlreadyExists
-		}
-
-		logger.Error("Failed to create user", zap.Error(err))
 		return User{}, err
 	}
 
@@ -63,9 +54,8 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (User, error) {
 
 	user, err := s.query.GetByID(ctx, id)
 	if err != nil {
-		err = database.WrapDBErrorWithKeyValue(err, "users", "id", id.String(), logger)
+		err = database.WrapDBErrorWithKeyValue(err, "users", "id", id.String(), logger, "get user by id")
 		span.RecordError(err)
-		logger.Error("Failed to get user by ID", zap.Error(err))
 		return User{}, err
 	}
 
@@ -79,9 +69,8 @@ func (s *Service) GetByName(ctx context.Context, name string) (User, error) {
 
 	user, err := s.query.GetByName(ctx, name)
 	if err != nil {
-		err = database.WrapDBErrorWithKeyValue(err, "users", "name", name, logger)
+		err = database.WrapDBErrorWithKeyValue(err, "users", "name", name, logger, "get user by name")
 		span.RecordError(err)
-		logger.Error("Failed to get user by name", zap.Error(err))
 		return User{}, err
 	}
 
@@ -98,9 +87,8 @@ func (s *Service) UpdateName(ctx context.Context, id uuid.UUID, name string) (Us
 		Name: name,
 	})
 	if err != nil {
-		err = database.WrapDBErrorWithKeyValue(err, "users", "id", id.String(), logger)
+		err = database.WrapDBErrorWithKeyValue(err, "users", "id", id.String(), logger, "update user name")
 		span.RecordError(err)
-		logger.Error("Failed to update user name", zap.Error(err))
 		return User{}, err
 	}
 
@@ -119,9 +107,8 @@ func (s *Service) UpdatePassword(ctx context.Context, id uuid.UUID, password str
 		Password: password,
 	})
 	if err != nil {
-		err = database.WrapDBErrorWithKeyValue(err, "users", "id", id.String(), logger)
+		err = database.WrapDBErrorWithKeyValue(err, "users", "id", id.String(), logger, "update user password")
 		span.RecordError(err)
-		logger.Error("Failed to update user password", zap.Error(err))
 		return err
 	}
 
@@ -137,9 +124,8 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 
 	count, err := s.query.Delete(ctx, id)
 	if err != nil {
-		err = database.WrapDBErrorWithKeyValue(err, "users", "id", id.String(), logger)
+		err = database.WrapDBErrorWithKeyValue(err, "users", "id", id.String(), logger, "delete user")
 		span.RecordError(err)
-		logger.Error("Failed to delete user", zap.Error(err))
 		return err
 	}
 

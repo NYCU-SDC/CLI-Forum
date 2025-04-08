@@ -2,21 +2,12 @@
 // versions:
 //   sqlc v1.28.0
 
-package user
+package post
 
 import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
-
-type Comment struct {
-	ID        uuid.UUID
-	PostID    uuid.UUID
-	AuthorID  uuid.UUID
-	Title     pgtype.Text
-	Content   pgtype.Text
-	CreatedAt pgtype.Timestamptz
-}
 
 type Post struct {
 	ID       uuid.UUID

@@ -2,6 +2,7 @@ package jwt
 
 import (
 	"backend/internal"
+	errorPkg "backend/internal/error"
 	"context"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -55,4 +56,12 @@ func (m Middleware) HandlerFunc(next http.HandlerFunc) http.HandlerFunc {
 		r = r.WithContext(context.WithValue(traceCtx, internal.UserContextKey, user))
 		next.ServeHTTP(w, r)
 	}
+}
+
+func GetUserFromContext(ctx context.Context) (User, error) {
+	user, ok := ctx.Value(internal.UserContextKey).(User)
+	if !ok {
+		return User{}, errorPkg.ErrInternalServer
+	}
+	return user, nil
 }
