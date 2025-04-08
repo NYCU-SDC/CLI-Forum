@@ -35,7 +35,7 @@ func (s *Service) GetAll(ctx context.Context) ([]Comment, error) {
 	comments, err := s.query.FindAll(ctx)
 
 	if err != nil {
-		err = database.WrapDBError(err, logger)
+		err = database.WrapDBError(err, logger, "get all comments")
 		span.RecordError(err)
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (s *Service) GetById(ctx context.Context, id uuid.UUID) (Comment, error) {
 	comment, err := s.query.FindByID(ctx, id)
 
 	if err != nil {
-		err = database.WrapDBErrorWithKeyValue(err, "comments", "id", id.String(), logger)
+		err = database.WrapDBErrorWithKeyValue(err, "comments", "id", id.String(), logger, "get comment by id")
 		span.RecordError(err)
 
 		// Required entry not found
@@ -73,7 +73,7 @@ func (s *Service) GetByPost(ctx context.Context, postId uuid.UUID) ([]Comment, e
 	comments, err := s.query.FindByPostID(traceCtx, postId)
 
 	if err != nil {
-		err = database.WrapDBError(err, logger)
+		err = database.WrapDBError(err, logger, "get comments by post ID")
 		span.RecordError(err)
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (s *Service) Create(ctx context.Context, arg CreateRequest) (Comment, error
 	})
 
 	if err != nil {
-		err = database.WrapDBError(err, logger)
+		err = database.WrapDBError(err, logger, "create comment")
 		span.RecordError(err)
 		return Comment{}, err
 	}
@@ -109,7 +109,7 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	err := s.query.Delete(ctx, id)
 
 	if err != nil {
-		err = database.WrapDBErrorWithKeyValue(err, "comments", "id", id.String(), logger)
+		err = database.WrapDBErrorWithKeyValue(err, "comments", "id", id.String(), logger, "delete comment")
 		span.RecordError(err)
 
 		// Required entry not found
