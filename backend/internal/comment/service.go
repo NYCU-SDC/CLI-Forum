@@ -3,9 +3,7 @@ package comment
 import (
 	"backend/internal"
 	"backend/internal/database"
-	errorPkg "backend/internal/error"
 	"context"
-	"errors"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"go.opentelemetry.io/otel"
@@ -52,14 +50,6 @@ func (s *Service) GetById(ctx context.Context, id uuid.UUID) (Comment, error) {
 	if err != nil {
 		err = database.WrapDBErrorWithKeyValue(err, "comments", "id", id.String(), logger, "get comment by id")
 		span.RecordError(err)
-
-		// Required entry not found
-		if errors.Is(err, errorPkg.ErrNotFound) {
-			logger.Error("Comment not found", zap.Error(err), zap.String("id", id.String()))
-			return Comment{}, err
-		}
-		// Other errors
-		logger.Error("Error fetching comment by ID", zap.Error(err), zap.String("id", id.String()))
 		return Comment{}, err
 	}
 	return comment, nil
@@ -111,14 +101,6 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		err = database.WrapDBErrorWithKeyValue(err, "comments", "id", id.String(), logger, "delete comment")
 		span.RecordError(err)
-
-		// Required entry not found
-		if errors.Is(err, errorPkg.ErrNotFound) {
-			logger.Error("Comment not found", zap.Error(err), zap.String("id", id.String()))
-			return err
-		}
-		// Other errors
-		logger.Error("Error deleting comment", zap.Error(err), zap.String("id", id.String()))
 		return err
 	}
 	return nil
