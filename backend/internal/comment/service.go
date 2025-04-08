@@ -30,7 +30,7 @@ func (s *Service) GetAll(ctx context.Context) ([]Comment, error) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
-	comments, err := s.query.FindAll(ctx)
+	comments, err := s.query.FindAll(traceCtx)
 
 	if err != nil {
 		err = database.WrapDBError(err, logger, "get all comments")
@@ -45,7 +45,7 @@ func (s *Service) GetById(ctx context.Context, id uuid.UUID) (Comment, error) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
-	comment, err := s.query.FindByID(ctx, id)
+	comment, err := s.query.FindByID(traceCtx, id)
 
 	if err != nil {
 		err = database.WrapDBErrorWithKeyValue(err, "comments", "id", id.String(), logger, "get comment by id")
@@ -76,7 +76,7 @@ func (s *Service) Create(ctx context.Context, arg CreateRequest) (Comment, error
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
-	comment, err := s.query.Create(ctx, CreateParams{
+	comment, err := s.query.Create(traceCtx, CreateParams{
 		PostID:   arg.PostID,
 		AuthorID: arg.AuthorID,
 		Title:    pgtype.Text{String: arg.Title, Valid: true},
@@ -96,7 +96,7 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, s.logger)
 
-	err := s.query.Delete(ctx, id)
+	err := s.query.Delete(traceCtx, id)
 
 	if err != nil {
 		err = database.WrapDBErrorWithKeyValue(err, "comments", "id", id.String(), logger, "delete comment")
