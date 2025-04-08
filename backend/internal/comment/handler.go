@@ -13,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"net/http"
+	"time"
 )
 
 //go:generate mockery --name=Store
@@ -72,14 +73,7 @@ func (h *Handler) GetAllHandler(w http.ResponseWriter, r *http.Request) {
 	// Convert commentList to Response
 	response := make([]Response, len(commentList))
 	for i, comment := range commentList {
-		response[i] = Response{
-			ID:        comment.ID.String(),
-			PostId:    comment.PostID.String(),
-			AuthorId:  comment.AuthorID.String(),
-			Title:     comment.Title.String,
-			Content:   comment.Content.String,
-			CreatedAt: comment.CreatedAt.Time.String(),
-		}
+		response[i] = GenerateResponse(comment)
 	}
 
 	internal.WriteJSONResponse(w, http.StatusOK, response)
@@ -108,14 +102,7 @@ func (h *Handler) GetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert comment to Response
-	response := Response{
-		ID:        comment.ID.String(),
-		PostId:    comment.PostID.String(),
-		AuthorId:  comment.AuthorID.String(),
-		Title:     comment.Title.String,
-		Content:   comment.Content.String,
-		CreatedAt: comment.CreatedAt.Time.String(),
-	}
+	response := GenerateResponse(comment)
 
 	internal.WriteJSONResponse(w, http.StatusOK, response)
 }
@@ -145,14 +132,7 @@ func (h *Handler) GetByPostHandler(w http.ResponseWriter, r *http.Request) {
 	// Convert comments to Response
 	response := make([]Response, len(comments))
 	for i, comment := range comments {
-		response[i] = Response{
-			ID:        comment.ID.String(),
-			PostId:    comment.PostID.String(),
-			AuthorId:  comment.AuthorID.String(),
-			Title:     comment.Title.String,
-			Content:   comment.Content.String,
-			CreatedAt: comment.CreatedAt.Time.String(),
-		}
+		response[i] = GenerateResponse(comment)
 	}
 
 	internal.WriteJSONResponse(w, http.StatusOK, response)
@@ -205,15 +185,19 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert comment to Response
-	response := Response{
-		ID:        comment.ID.String(),
-		PostId:    comment.PostID.String(),
-		AuthorId:  comment.AuthorID.String(),
-		Title:     comment.Title.String,
-		Content:   comment.Content.String,
-		CreatedAt: comment.CreatedAt.Time.String(),
-	}
+	response := GenerateResponse(comment)
 
 	// Write response
 	internal.WriteJSONResponse(w, http.StatusOK, response)
+}
+
+func GenerateResponse(post Comment) Response {
+	return Response{
+		ID:        post.ID.String(),
+		PostId:    post.PostID.String(),
+		AuthorId:  post.AuthorID.String(),
+		Title:     post.Title.String,
+		Content:   post.Content.String,
+		CreatedAt: post.CreatedAt.Time.Format(time.RFC3339),
+	}
 }
