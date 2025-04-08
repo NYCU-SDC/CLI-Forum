@@ -188,7 +188,11 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Convert AuthorId to UUID
 	var authorId uuid.UUID
-	u := r.Context().Value(internal.UserContextKey).(jwt.User)
+	u, err := jwt.GetUserFromContext(r.Context())
+	if err != nil {
+		logger.DPanic("Can't find user in context, this should never happen")
+		problem.WriteError(traceCtx, w, err, logger)
+	}
 	err = authorId.Scan(u.ID)
 	if err != nil {
 		logger.Error("Error getting author id from context", zap.Error(err), zap.String("author_id", u.ID))
