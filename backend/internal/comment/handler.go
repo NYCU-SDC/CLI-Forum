@@ -61,7 +61,7 @@ func (h *Handler) GetAllHandler(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 	logger := internal.LoggerWithContext(traceCtx, h.logger)
 
-	commentList, err := h.store.GetAll(r.Context())
+	commentList, err := h.store.GetAll(traceCtx)
 
 	// Handle error if fetching comment list fails
 	if err != nil {
