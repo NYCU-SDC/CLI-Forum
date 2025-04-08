@@ -101,7 +101,7 @@ func (h *Handler) GetByIdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	comment, err := h.store.GetById(r.Context(), id)
+	comment, err := h.store.GetById(traceCtx, id)
 	if err != nil {
 		logger.Error("Error fetching comment", zap.Error(err), zap.String("id", commentID))
 		problem.WriteError(traceCtx, w, err, logger)
