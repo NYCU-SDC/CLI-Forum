@@ -93,8 +93,7 @@ func (h *Handler) GetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	commentID := r.PathValue("id")
 
 	// Verify and transform ID to UUID
-	var id uuid.UUID
-	err := id.Scan(commentID)
+	id, err := internal.ParseUUID(commentID)
 	if err != nil {
 		logger.Error("Error parsing UUID", zap.Error(err), zap.String("id", commentID))
 		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", errorPkg.ErrInvalidUUID, err), logger)
@@ -129,8 +128,7 @@ func (h *Handler) GetByPostHandler(w http.ResponseWriter, r *http.Request) {
 	postID := r.PathValue("post_id")
 
 	// Verify and transform ID to UUID
-	var id uuid.UUID
-	err := id.Scan(postID)
+	id, err := internal.ParseUUID(postID)
 	if err != nil {
 		logger.Error("Error parsing UUID", zap.Error(err), zap.String("post_id", postID))
 		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", errorPkg.ErrInvalidUUID, err), logger)
@@ -177,8 +175,7 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	postID := r.PathValue("post_id")
 
 	// Verify and transform PostID to UUID
-	var id uuid.UUID
-	err = id.Scan(postID)
+	id, err := internal.ParseUUID(postID)
 	if err != nil {
 		logger.Error("Error parsing UUID", zap.Error(err), zap.String("post_id", postID))
 		problem.WriteError(traceCtx, w, fmt.Errorf("%w: %v", errorPkg.ErrInvalidUUID, err), logger)
@@ -187,13 +184,12 @@ func (h *Handler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	req.PostID = id
 
 	// Convert AuthorId to UUID
-	var authorId uuid.UUID
 	u, err := jwt.GetUserFromContext(r.Context())
 	if err != nil {
 		logger.DPanic("Can't find user in context, this should never happen")
 		problem.WriteError(traceCtx, w, err, logger)
 	}
-	err = authorId.Scan(u.ID)
+	authorId, err := internal.ParseUUID(u.ID)
 	if err != nil {
 		logger.Error("Error getting author id from context", zap.Error(err), zap.String("author_id", u.ID))
 		problem.WriteError(traceCtx, w, err, logger)
