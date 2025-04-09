@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.28.0
 
-package user
+package comment
 
 import (
 	"github.com/google/uuid"
@@ -16,14 +16,6 @@ type Comment struct {
 	Title     pgtype.Text
 	Content   pgtype.Text
 	CreatedAt pgtype.Timestamptz
-}
-
-type Post struct {
-	ID       uuid.UUID
-	AuthorID uuid.UUID
-	Title    pgtype.Text
-	Content  pgtype.Text
-	CreateAt pgtype.Timestamptz
 }
 
 type User struct {

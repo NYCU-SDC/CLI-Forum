@@ -49,6 +49,8 @@ func WriteError(ctx context.Context, w http.ResponseWriter, err error, logger *z
 		problem = NewForbiddenProblem("Make sure you have the right permissions")
 	case errors.Is(err, errorPkg.ErrUnauthorized):
 		problem = NewUnauthorizedProblem("You must be logged in to access this resource")
+	case errors.Is(err, errorPkg.ErrInvalidUUID):
+		problem = NewValidateProblem(err.Error())
 	case errors.As(err, &internalDbError):
 		problem = NewInternalServerProblem("Internal server error")
 	case errors.Is(err, errorPkg.ErrInvalidUUID):
