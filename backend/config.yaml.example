@@ -1,0 +1,15 @@
+# Debug mode
+debug: false
+
+# Server configuration
+host: localhost
+port: 8080
+
+# JWT secret key
+secret: your-secret-key-here
+
+# Database configuration
+database_url: postgres://username:password@localhost:5432/cli_forum?sslmode=disable
+
+# OpenTelemetry configuration
+otel_collector_url: http://localhost:4317
