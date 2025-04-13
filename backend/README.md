@@ -111,6 +111,3 @@ Major dependencies include:
 - `go.uber.org/zap` - Logging
 - `github.com/go-playground/validator/v10` - Request validation
 
-## License
-
-[Your License Here]
