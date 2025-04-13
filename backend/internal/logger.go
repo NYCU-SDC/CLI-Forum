@@ -16,8 +16,8 @@ func ZapProductionConfig() zap.Config {
 		DisableStacktrace: true,
 		Encoding:          "json",
 		EncoderConfig:     zap.NewProductionEncoderConfig(),
-		OutputPaths:       []string{"stderr"},
-		ErrorOutputPaths:  []string{"stderr"},
+		OutputPaths:       []string{"stdout"},
+		ErrorOutputPaths:  []string{"stdout"},
 	}
 }
 
