@@ -27,6 +27,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -56,7 +58,7 @@ func main() {
 		zap.String("commit_hash", CommitHash),
 	}
 
-	cfg := config.Load()
+	cfg, cfgLog := config.Load()
 	err := cfg.Validate()
 	if err != nil {
 		if errors.Is(err, config.ErrDatabaseURLRequired) {
@@ -73,6 +75,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v, exiting...", err)
 	}
+
+	cfgLog.FlushToZap(logger)
 
 	if cfg.Secret == config.DefaultSecret && !cfg.Debug {
 		logger.Warn("Default secret detected in production environment, replace it with a secure random string")
@@ -132,22 +136,43 @@ func main() {
 	mux.HandleFunc("POST /api/post/{post_id}/comments", requireUserRoleMiddleware(commentHandler.CreateHandler, jwtMiddleware, logger, cfg.Debug))
 	mux.HandleFunc("GET /api/comment/{id}", requireUserRoleMiddleware(commentHandler.GetByIdHandler, jwtMiddleware, logger, cfg.Debug))
 
-  mux.HandleFunc("GET /api/posts", requireUserRoleMiddleware(postHandler.GetAllHandler, jwtMiddleware, logger, cfg.Debug))
+	mux.HandleFunc("GET /api/posts", requireUserRoleMiddleware(postHandler.GetAllHandler, jwtMiddleware, logger, cfg.Debug))
 	mux.HandleFunc("POST /api/posts", requireUserRoleMiddleware(postHandler.CreateHandler, jwtMiddleware, logger, cfg.Debug))
 	mux.HandleFunc("GET /api/post/{id}", requireUserRoleMiddleware(postHandler.GetHandler, jwtMiddleware, logger, cfg.Debug))
 
-	logger.Info("Starting listening request", zap.String("host", cfg.Host), zap.String("port", cfg.Port))
-	err = http.ListenAndServe(cfg.Host+":"+cfg.Port, mux)
-	if err != nil {
-		logger.Fatal("Fail to start server with error", zap.Error(err))
+	// handle interrupt signal
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	srv := &http.Server{
+		Addr:    cfg.Host + ":" + cfg.Port,
+		Handler: mux,
 	}
 
-	// graceful shutdown
-	defer func() {
-		if err := shutdown(context.Background()); err != nil {
-			logger.Error("Failed to shutdown OpenTelemetry", zap.Error(err))
+	go func() {
+		logger.Info("Starting listening request", zap.String("host", cfg.Host), zap.String("port", cfg.Port))
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Fatal("Fail to start server with error", zap.Error(err))
 		}
 	}()
+
+	// wait for context close
+	<-ctx.Done()
+	logger.Info("Shutting down gracefully...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Error("Server forced to shutdown", zap.Error(err))
+	}
+
+	otelCtx, otelCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer otelCancel()
+	if err := shutdown(otelCtx); err != nil {
+		logger.Error("Forced to shutdown OpenTelemetry", zap.Error(err))
+	}
+
+	logger.Info("Successfully shutdown")
 }
 
 func basicMiddleware(next http.HandlerFunc, logger *zap.Logger, debug bool) http.HandlerFunc {
