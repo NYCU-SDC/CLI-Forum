@@ -8,7 +8,31 @@ all: gen build test
 
 run: gen
 	@echo -e ":: $(GREEN)Starting backend...$(NC)"
-	@go run cmd/backend/main.go
+	@DEBUG=true go run cmd/backend/main.go
+
+observe: gen
+	@echo -e ":: $(GREEN)Starting observability stack...$(NC)"
+	@docker compose -f observe/docker-compose.yml up --quiet-pull -d \
+		&& echo -e "  -> Observability stack started" \
+		|| (echo -e "  -> $(RED)Failed to start observability stack$(NC)" && exit 1)
+
+	$(call wait_healthy,observe-loki-1)
+
+	@echo -e ":: $(GREEN)Streaming logs to Vector (local binary) with OTEL enabled...$(NC)"
+	@echo -e "  -> If start successfully, you can open http://localhost:3000/explore?schemaVersion=1&panes=%7B%2251t%22%3A%7B%22datasource%22%3A%22P8E80F9AEF21F6940%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22expr%22%3A%22%7Bapp%3D%5C%22cli-forum-dev%5C%22%7D+%7C+json+%7C+line_format+%5C%22%5B%7B%7B+.level+%7D%7D%5D+%7B%7B+.msg+%7D%7D+%28%7B%7B+.caller+%7D%7D%29%5C%22%22%2C%22queryType%22%3A%22range%22%2C%22datasource%22%3A%7B%22type%22%3A%22loki%22%2C%22uid%22%3A%22P8E80F9AEF21F6940%22%7D%2C%22editorMode%22%3A%22code%22%2C%22direction%22%3A%22backward%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-24h%22%2C%22to%22%3A%22now%22%7D%2C%22panelsState%22%3A%7B%22logs%22%3A%7B%22visualisationType%22%3A%22logs%22%7D%7D%7D%7D&orgId=1 to see the logs"
+	@DEBUG=false go run cmd/backend/main.go \
+		| vector --config ./observe/vector.toml \
+		&& echo -e "==> $(BLUE)Observe mode completed$(NC)" && make stop-observe \
+		|| (echo -e "==> $(RED)Observe mode failed$(NC)" && make stop-observe && exit 1)
+
+start-observe:
+	@echo -e ":: $(GREEN)Starting observability stack...$(NC)"
+	@docker compose -f observe/docker-compose.yml up --quiet-pull -d \
+		&& echo -e "  -> Observability stack started" \
+		|| (echo -e "  -> $(RED)Failed to start observability stack$(NC)" && exit 1)
+
+stop-observe:
+	$(call stop-observe)
 
 build: gen
 	@echo -e ":: $(GREEN)Building backend...$(NC)"
@@ -28,3 +52,18 @@ gen:
 test: gen
 	@echo -e ":: $(GREEN)Running tests...$(NC)"
 	@go test -cover ./... && echo -e "==> $(BLUE)All tests passed$(NC)" || echo -e "==> $(RED)Tests failed$(NC)"
+
+define wait_healthy
+	@echo -e ":: $(GREEN)Waiting for $1 container to become healthy...$(NC)"
+	@echo -e "  -> This may take a while..."
+	@timeout 60 bash -c 'until [ "$$(docker inspect --format="{{.State.Health.Status}}" $1 2>/dev/null)" = "healthy" ]; do sleep 1; done' \
+		&& echo -e "  -> $1 is healthy" \
+		|| (echo -e "  -> $(RED)$1 did not become healthy in time$(NC)" && exit 1)
+endef
+
+define stop-observe
+	@echo -e ":: $(GREEN)Stopping observability stack...$(NC)"
+	@docker compose -f observe/docker-compose.yml down \
+		&& echo -e "  -> Observability stack stopped" \
+		|| (echo -e "  -> $(RED)Failed to stop observability stack$(NC)" && exit 1)
+endef

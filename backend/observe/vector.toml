@@ -1,0 +1,16 @@
+# vector.toml
+[sources.stdin]
+type = "stdin"
+decoding.codec = "json"
+
+[sinks.to_loki]
+type = "loki"
+inputs = ["stdin"]
+encoding.codec = "json"
+endpoint = "http://localhost:3100"
+labels = { level = "{{ level }}", app = "{{ app_name }}", version = "{{ version }}" }
+
+[sinks.to_console]
+type = "console"
+inputs = ["stdin"]
+encoding.codec = "json"
