@@ -40,15 +40,28 @@ backend/
    ```bash
    go mod download
    ```
-3. Set up your environment variables:
+3. Set up your configuration:
    ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
+   cp config.yaml.example config.yaml
+   # Edit config.yaml with your settings
    ```
 4. Run the application:
    ```bash
    make run
    ```
+
+## Configuration
+
+The application uses a YAML-based configuration file (`config.yaml`). You can configure:
+
+- Debug mode
+- Server host and port
+- JWT secret key
+- Database connection URL
+- Migration source path
+- OpenTelemetry collector URL
+
+See `config.yaml.example` for all available options.
 
 ## Available Make Commands
 
@@ -97,3 +110,7 @@ Major dependencies include:
 - `go.opentelemetry.io/otel` - OpenTelemetry
 - `go.uber.org/zap` - Logging
 - `github.com/go-playground/validator/v10` - Request validation
+
+## License
+
+[Your License Here]
