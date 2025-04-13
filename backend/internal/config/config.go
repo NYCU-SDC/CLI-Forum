@@ -32,7 +32,41 @@ func (c Config) Validate() error {
 	return nil
 }
 
-func Load() Config {
+type LogBuffer struct {
+	buffer []logEntry
+}
+
+type logEntry struct {
+	msg  string
+	err  error
+	meta map[string]string
+}
+
+func NewConfigLogger() *LogBuffer {
+	return &LogBuffer{}
+}
+
+func (cl *LogBuffer) Warn(msg string, err error, meta map[string]string) {
+	cl.buffer = append(cl.buffer, logEntry{msg: msg, err: err, meta: meta})
+}
+
+func (cl *LogBuffer) FlushToZap(logger *zap.Logger) {
+	for _, e := range cl.buffer {
+		var fields []zap.Field
+		if e.err != nil {
+			fields = append(fields, zap.Error(e.err))
+		}
+		for k, v := range e.meta {
+			fields = append(fields, zap.String(k, v))
+		}
+		logger.Warn(e.msg, fields...)
+	}
+	cl.buffer = nil
+}
+
+func Load() (Config, *LogBuffer) {
+	logger := NewConfigLogger()
+
 	config := &Config{
 		Debug:            false,
 		Host:             "localhost",
@@ -47,10 +81,10 @@ func Load() Config {
 
 	config, err = FromFile("config.yaml", config)
 	if err != nil {
-		zap.L().Warn("Failed to load config from file", zap.Error(err), zap.String("path", "config.yaml"))
+		logger.Warn("Failed to load config from file", err, map[string]string{"path": "config.yaml"})
 	}
 
-	config, err = FromEnv(config)
+	config, err = FromEnv(config, logger)
 	if err != nil {
 		zap.L().Warn("Failed to load config from env", zap.Error(err))
 	}
@@ -60,7 +94,7 @@ func Load() Config {
 		zap.L().Warn("Failed to load config from flags", zap.Error(err))
 	}
 
-	return *config
+	return *config, logger
 }
 
 func FromFile(filePath string, config *Config) (*Config, error) {
@@ -78,9 +112,13 @@ func FromFile(filePath string, config *Config) (*Config, error) {
 	return merge(config, &fileConfig)
 }
 
-func FromEnv(config *Config) (*Config, error) {
+func FromEnv(config *Config, logger *LogBuffer) (*Config, error) {
 	if err := godotenv.Overload(); err != nil {
-		return config, err
+		if os.IsNotExist(err) {
+			logger.Warn("No .env file found", err, map[string]string{"path": ".env"})
+		} else {
+			return nil, err
+		}
 	}
 
 	envConfig := &Config{

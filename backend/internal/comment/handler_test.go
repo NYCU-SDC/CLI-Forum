@@ -54,7 +54,7 @@ func TestHandler_CreateHandler(t *testing.T) {
 				AuthorId:  "7942c917-4770-43c1-a56a-952186b9970e",
 				Title:     "Test Title",
 				Content:   "Test Content",
-				CreatedAt: time.Date(2023, 10, 1, 0, 0, 0, 0, time.UTC).String(),
+				CreatedAt: "2023-10-01T00:00:00Z",
 			},
 		},
 		{

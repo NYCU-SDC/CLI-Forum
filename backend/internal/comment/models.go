@@ -18,6 +18,14 @@ type Comment struct {
 	CreatedAt pgtype.Timestamptz
 }
 
+type Post struct {
+	ID       uuid.UUID
+	AuthorID uuid.UUID
+	Title    pgtype.Text
+	Content  pgtype.Text
+	CreateAt pgtype.Timestamptz
+}
+
 type User struct {
 	ID       uuid.UUID
 	Name     string
