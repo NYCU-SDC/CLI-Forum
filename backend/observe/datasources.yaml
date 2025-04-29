@@ -1,0 +1,20 @@
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    url: http://loki:3100
+    jsonData:
+      derivedFields:
+        - datasourceUid: tempo
+          name: traceId
+          matcherType: label
+          matcherRegex: trace_id
+          targetBlank: true
+          url: '$${__value.raw}'
+          urlDisplayLabel: trace
+
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    url: http://tempo:3200

@@ -16,22 +16,8 @@ services:
       retries: 5
     networks:
       - observe-net
-    entrypoint:
-      - sh
-      - -euc
-      - |
-        mkdir -p /etc/grafana/provisioning/datasources
-        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
-        apiVersion: 1
-        datasources:
-          - name: Loki
-            type: loki
-            url: http://loki:3100
-          - name: Tempo
-            type: tempo
-            url: http://tempo:3200
-        EOF
-        /run.sh
+    volumes:
+      - ./datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
 
   loki:
     image: grafana/loki:latest
